@@ -47,8 +47,8 @@ export const OutlineEditor: React.FC<OutlineEditorProps> = ({ chapters, onUpdate
                 placeholder="Chapter Title"
               />
               <textarea
-                className="w-full text-slate-600 bg-transparent outline-none resize-none leading-relaxed"
-                rows={2}
+                className="w-full text-slate-600 bg-transparent outline-none resize-y leading-relaxed min-h-[120px]"
+                rows={5}
                 value={chapter.summary}
                 onChange={(e) => handleChange(index, 'summary', e.target.value)}
                 placeholder="What happens in this chapter?"
