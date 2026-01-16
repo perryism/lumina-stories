@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
-import { Chapter } from '../types';
+import { Chapter, Character } from '../types';
 
 interface ManualChapterGeneratorProps {
   title: string;
   chapters: Chapter[];
+  characters: Character[];
   currentPrompt: string;
-  onUpdateChapter: (index: number, field: keyof Chapter, value: string) => void;
+  onUpdateChapter: (index: number, field: keyof Chapter, value: any) => void;
   onUpdatePrompt: (prompt: string) => void;
   onGenerateNext: (customPrompt: string) => void;
   onViewStory: () => void;
@@ -16,6 +17,7 @@ interface ManualChapterGeneratorProps {
 export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   title,
   chapters,
+  characters,
   currentPrompt,
   onUpdateChapter,
   onUpdatePrompt,
@@ -25,6 +27,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
 }) => {
   const [expandedChapter, setExpandedChapter] = useState<number | null>(null);
   const [showPromptEditor, setShowPromptEditor] = useState(false);
+  const [showCharacterSelector, setShowCharacterSelector] = useState(false);
 
   const nextChapterIndex = chapters.findIndex(ch => ch.status === 'pending');
   const allCompleted = chapters.every(ch => ch.status === 'completed');
@@ -32,6 +35,15 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
 
   const toggleExpand = (index: number) => {
     setExpandedChapter(expandedChapter === index ? null : index);
+  };
+
+  const toggleCharacterForChapter = (chapterIndex: number, characterId: string) => {
+    const chapter = chapters[chapterIndex];
+    const currentIds = chapter.characterIds || [];
+    const newIds = currentIds.includes(characterId)
+      ? currentIds.filter(id => id !== characterId)
+      : [...currentIds, characterId];
+    onUpdateChapter(chapterIndex, 'characterIds', newIds);
   };
 
   return (
@@ -100,6 +112,66 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                         />
                       </div>
 
+                      {/* Character Selection for pending/next chapters */}
+                      {!isCompleted && characters.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                          <div className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-2">
+                            Characters in this chapter
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {characters.map((character) => {
+                              const isSelected = chapter.characterIds?.includes(character.id) ?? false;
+                              return (
+                                <button
+                                  key={character.id}
+                                  onClick={() => !isGenerating && toggleCharacterForChapter(index, character.id)}
+                                  disabled={isGenerating}
+                                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                                    isSelected
+                                      ? 'bg-indigo-100 text-indigo-700 border-2 border-indigo-300'
+                                      : 'bg-slate-100 text-slate-600 border-2 border-transparent hover:border-slate-300'
+                                  } ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                >
+                                  {isSelected && (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 inline mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  )}
+                                  {character.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {(!chapter.characterIds || chapter.characterIds.length === 0) && (
+                            <p className="text-xs text-slate-500 mt-2 italic">
+                              No characters selected. All characters will be available for generation.
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Show selected characters for completed chapters */}
+                      {isCompleted && chapter.characterIds && chapter.characterIds.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                          <div className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-2">
+                            Characters featured
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {chapter.characterIds.map((charId) => {
+                              const character = characters.find(c => c.id === charId);
+                              return character ? (
+                                <span
+                                  key={charId}
+                                  className="px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-100 text-slate-700"
+                                >
+                                  {character.name}
+                                </span>
+                              ) : null;
+                            })}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Show content preview for completed chapters */}
                       {isCompleted && (
                         <div className="mt-4 pt-4 border-t border-slate-100">
@@ -163,6 +235,32 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                 <p className="text-sm text-slate-600">
                   Ready to generate <span className="font-bold text-slate-900">Chapter {nextChapterIndex + 1}</span>
                 </p>
+
+                {/* Character Summary */}
+                {characters.length > 0 && (
+                  <div className="bg-slate-50 rounded-lg p-3">
+                    <div className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-2">
+                      Selected Characters
+                    </div>
+                    {chapters[nextChapterIndex].characterIds && chapters[nextChapterIndex].characterIds!.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {chapters[nextChapterIndex].characterIds!.map((charId) => {
+                          const character = characters.find(c => c.id === charId);
+                          return character ? (
+                            <span
+                              key={charId}
+                              className="px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
+                            >
+                              {character.name}
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 italic">All characters available</p>
+                    )}
+                  </div>
+                )}
 
                 {/* Prompt Editor Toggle */}
                 <button

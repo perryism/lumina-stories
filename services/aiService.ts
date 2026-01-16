@@ -206,12 +206,23 @@ export const buildChapterPrompt = (
   characters: Character[],
   chapterIndex: number,
   outline: Chapter[],
-  previousChaptersSummary: string
+  previousChaptersSummary: string,
+  selectedCharacterIds?: string[]
 ): string => {
   const currentChapter = outline[chapterIndex];
-  const charactersPrompt = characters
-    .map((c) => `${c.name}: ${c.attributes}`)
-    .join("\n");
+
+  // Filter characters based on selection
+  const chapterCharacters = selectedCharacterIds && selectedCharacterIds.length > 0
+    ? characters.filter(c => selectedCharacterIds.includes(c.id))
+    : characters;
+
+  const charactersPrompt = chapterCharacters.length > 0
+    ? chapterCharacters.map((c) => `${c.name}: ${c.attributes}`).join("\n")
+    : "No specific characters selected for this chapter.";
+
+  const characterNote = selectedCharacterIds && selectedCharacterIds.length > 0
+    ? `\n- Focus on these characters: ${chapterCharacters.map(c => c.name).join(', ')}`
+    : '';
 
   return `Write Chapter ${chapterIndex + 1} of the ${genre} story titled "${storyTitle}".
 
@@ -221,7 +232,7 @@ Chapter Summary: ${currentChapter.summary}
 Overall Story Context:
 - Previous developments: ${previousChaptersSummary || "This is the first chapter."}
 
-Characters:
+Characters in this chapter:
 ${charactersPrompt}
 
 Instructions:
@@ -229,7 +240,7 @@ Instructions:
 - Focus on showing rather than telling.
 - Include dialogue where appropriate.
 - The chapter should be approximately 600-1000 words.
-- Ensure continuity with the provided characters and plot.`;
+- Ensure continuity with the provided characters and plot.${characterNote}`;
 };
 
 export const generateChapterContent = async (

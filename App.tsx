@@ -65,13 +65,17 @@ const App: React.FC = () => {
       ? "Previous chapters summary will be generated..."
       : "";
 
+    const nextChapter = state.outline[nextIndex];
+    const selectedCharacterIds = nextChapter.characterIds;
+
     const defaultPrompt = buildChapterPrompt(
       state.title,
       state.genre,
       state.characters,
       nextIndex,
       state.outline,
-      previousSummary
+      previousSummary,
+      selectedCharacterIds
     );
 
     setCurrentPrompt(defaultPrompt);
@@ -235,6 +239,7 @@ const App: React.FC = () => {
         <ManualChapterGenerator
           title={state.title}
           chapters={state.outline}
+          characters={state.characters}
           currentPrompt={currentPrompt}
           onUpdateChapter={handleUpdateChapter}
           onUpdatePrompt={setCurrentPrompt}

@@ -11,6 +11,7 @@ export interface Chapter {
   summary: string;
   content: string;
   status: 'pending' | 'generating' | 'completed' | 'error';
+  characterIds?: string[]; // IDs of characters participating in this chapter
 }
 
 export interface StoryState {
