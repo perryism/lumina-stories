@@ -1,16 +1,22 @@
 
 import React, { useState } from 'react';
 import { Chapter } from '../types';
+import { exportStoryToText } from '../utils/exportStory';
 
 interface StoryViewerProps {
   title: string;
   chapters: Chapter[];
+  genre?: string;
 }
 
-export const StoryViewer: React.FC<StoryViewerProps> = ({ title, chapters }) => {
+export const StoryViewer: React.FC<StoryViewerProps> = ({ title, chapters, genre }) => {
   const [activeChapterIndex, setActiveChapterIndex] = useState(0);
 
   const activeChapter = chapters[activeChapterIndex];
+
+  const handleExport = () => {
+    exportStoryToText(title, chapters, genre);
+  };
 
   return (
     <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 pb-12">
@@ -22,8 +28,8 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ title, chapters }) => 
             key={chapter.id}
             onClick={() => setActiveChapterIndex(index)}
             className={`w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 ${
-              activeChapterIndex === index 
-                ? 'bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-100' 
+              activeChapterIndex === index
+                ? 'bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-100'
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
@@ -33,6 +39,19 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ title, chapters }) => 
             <span className="truncate">{chapter.title}</span>
           </button>
         ))}
+
+        {/* Export Button */}
+        <div className="pt-4 mt-4 border-t border-slate-200">
+          <button
+            onClick={handleExport}
+            className="w-full px-4 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+            Export to Text
+          </button>
+        </div>
       </aside>
 
       {/* Main Content Area */}
@@ -56,7 +75,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ title, chapters }) => 
               ) : <br key={i} />
             ))}
           </article>
-          
+
           <div className="mt-16 pt-8 border-t border-slate-100 flex justify-between items-center">
             <button
               disabled={activeChapterIndex === 0}

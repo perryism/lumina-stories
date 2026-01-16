@@ -188,7 +188,7 @@ const App: React.FC = () => {
       )}
 
       {state.currentStep === 'reader' && (
-        <StoryViewer title={state.title} chapters={state.outline} />
+        <StoryViewer title={state.title} chapters={state.outline} genre={state.genre} />
       )}
     </Layout>
   );
