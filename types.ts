@@ -19,7 +19,7 @@ export interface StoryState {
   numChapters: number;
   characters: Character[];
   outline: Chapter[];
-  currentStep: 'setup' | 'outline' | 'generating' | 'reader';
+  currentStep: 'setup' | 'outline' | 'manual-generation' | 'generating' | 'reader';
 }
 
 export enum GenerationStatus {

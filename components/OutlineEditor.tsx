@@ -6,9 +6,10 @@ interface OutlineEditorProps {
   chapters: Chapter[];
   onUpdate: (updated: Chapter[]) => void;
   onConfirm: () => void;
+  onManualMode: () => void;
 }
 
-export const OutlineEditor: React.FC<OutlineEditorProps> = ({ chapters, onUpdate, onConfirm }) => {
+export const OutlineEditor: React.FC<OutlineEditorProps> = ({ chapters, onUpdate, onConfirm, onManualMode }) => {
   const handleChange = (index: number, field: keyof Chapter, value: string) => {
     const next = [...chapters];
     next[index] = { ...next[index], [field]: value };
@@ -22,15 +23,26 @@ export const OutlineEditor: React.FC<OutlineEditorProps> = ({ chapters, onUpdate
           <h2 className="text-3xl font-bold text-slate-900">Story Map</h2>
           <p className="text-slate-500">Fine-tune the narrative beats before generating full prose.</p>
         </div>
-        <button
-          onClick={onConfirm}
-          className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all flex items-center gap-2"
-        >
-          Write Chapters
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-          </svg>
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={onManualMode}
+            className="bg-slate-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-700 transition-all flex items-center justify-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+            </svg>
+            One by One
+          </button>
+          <button
+            onClick={onConfirm}
+            className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+            Write All
+          </button>
+        </div>
       </div>
 
       <div className="space-y-4">

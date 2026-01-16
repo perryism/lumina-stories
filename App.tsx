@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { StoryForm } from './components/StoryForm';
 import { OutlineEditor } from './components/OutlineEditor';
+import { ManualChapterGenerator } from './components/ManualChapterGenerator';
 import { StoryViewer } from './components/StoryViewer';
 import { StoryState, Chapter, Character } from './types';
 import { generateOutline, generateChapterContent, summarizePreviousChapters } from './services/aiService';
@@ -46,6 +47,64 @@ const App: React.FC = () => {
 
   const handleConfirmOutline = () => {
     setState(prev => ({ ...prev, currentStep: 'generating' }));
+  };
+
+  const handleManualMode = () => {
+    setState(prev => ({ ...prev, currentStep: 'manual-generation' }));
+  };
+
+  const handleUpdateChapter = (index: number, field: keyof Chapter, value: string) => {
+    const updatedOutline = [...state.outline];
+    updatedOutline[index] = { ...updatedOutline[index], [field]: value };
+    setState(prev => ({ ...prev, outline: updatedOutline }));
+  };
+
+  const handleGenerateNextChapter = async () => {
+    const nextIndex = state.outline.findIndex(ch => ch.status === 'pending');
+    if (nextIndex === -1) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const updatedOutline = [...state.outline];
+
+      // Mark as generating
+      updatedOutline[nextIndex] = { ...updatedOutline[nextIndex], status: 'generating' };
+      setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+
+      // Get previous chapters summary
+      const completedChapters = updatedOutline.slice(0, nextIndex).filter(c => c.status === 'completed');
+      const previousSummary = completedChapters.length > 0
+        ? await summarizePreviousChapters(completedChapters)
+        : "";
+
+      // Generate content
+      const content = await generateChapterContent(
+        state.title,
+        state.genre,
+        state.characters,
+        nextIndex,
+        updatedOutline,
+        previousSummary
+      );
+
+      // Update with completed content
+      updatedOutline[nextIndex] = { ...updatedOutline[nextIndex], content, status: 'completed' };
+      setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+    } catch (err: any) {
+      console.error("Chapter generation failed", err);
+      const updatedOutline = [...state.outline];
+      updatedOutline[nextIndex] = { ...updatedOutline[nextIndex], status: 'error' };
+      setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+      setError(`Failed to generate chapter ${nextIndex + 1}.`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleViewStory = () => {
+    setState(prev => ({ ...prev, currentStep: 'reader' }));
   };
 
   // Automated writing effect
@@ -130,6 +189,18 @@ const App: React.FC = () => {
           chapters={state.outline}
           onUpdate={handleUpdateOutline}
           onConfirm={handleConfirmOutline}
+          onManualMode={handleManualMode}
+        />
+      )}
+
+      {state.currentStep === 'manual-generation' && (
+        <ManualChapterGenerator
+          title={state.title}
+          chapters={state.outline}
+          onUpdateChapter={handleUpdateChapter}
+          onGenerateNext={handleGenerateNextChapter}
+          onViewStory={handleViewStory}
+          isGenerating={isLoading}
         />
       )}
 
