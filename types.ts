@@ -5,6 +5,14 @@ export interface Character {
   attributes: string;
 }
 
+export interface ForeshadowingNote {
+  id: string;
+  targetChapterId: number; // The chapter where the reveal happens
+  revealDescription: string; // What will be revealed (e.g., "The witch is the hero's mother")
+  foreshadowingHint: string; // How to hint at this in earlier chapters (e.g., "The witch shows maternal concern")
+  createdAt: number; // Timestamp for ordering
+}
+
 export interface Chapter {
   id: number;
   title: string;
@@ -12,6 +20,7 @@ export interface Chapter {
   content: string;
   status: 'pending' | 'generating' | 'completed' | 'error';
   characterIds?: string[]; // IDs of characters participating in this chapter
+  foreshadowingNotes?: ForeshadowingNote[]; // Notes for events that will be revealed in this chapter
 }
 
 export interface ChapterOutcome {
@@ -31,6 +40,7 @@ export interface StoryState {
   outline: Chapter[];
   currentStep: 'setup' | 'outline' | 'manual-generation' | 'generating' | 'reader';
   systemPrompt?: string;
+  foreshadowingNotes?: ForeshadowingNote[]; // Global foreshadowing notes for the story
 }
 
 export enum GenerationStatus {

@@ -1,7 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import OpenAI from "openai";
-import { Character, Chapter, ReadingLevel, ChapterOutcome } from "../types";
+import { Character, Chapter, ReadingLevel, ChapterOutcome, ForeshadowingNote } from "../types";
 
 // Configuration
 export type AIProvider = "gemini" | "openai" | "local";
@@ -264,7 +264,8 @@ export const buildChapterPrompt = (
   outline: Chapter[],
   previousChaptersSummary: string,
   selectedCharacterIds?: string[],
-  readingLevel?: ReadingLevel
+  readingLevel?: ReadingLevel,
+  foreshadowingNotes?: ForeshadowingNote[]
 ): string => {
   const currentChapter = outline[chapterIndex];
 
@@ -285,6 +286,35 @@ export const buildChapterPrompt = (
     ? `\n\nReading Level Guidelines:${getReadingLevelInstructions(readingLevel)}`
     : '';
 
+  // Build foreshadowing instructions
+  let foreshadowingInstructions = '';
+  if (foreshadowingNotes && foreshadowingNotes.length > 0) {
+    // Find notes that should be foreshadowed in this chapter (target chapter is later)
+    const notesToForeshadow = foreshadowingNotes.filter(
+      note => note.targetChapterId > chapterIndex + 1
+    );
+
+    // Find notes that should be revealed in this chapter
+    const notesToReveal = foreshadowingNotes.filter(
+      note => note.targetChapterId === chapterIndex + 1
+    );
+
+    if (notesToForeshadow.length > 0) {
+      foreshadowingInstructions += '\n\nForeshadowing (subtle hints for future reveals):';
+      notesToForeshadow.forEach(note => {
+        foreshadowingInstructions += `\n- Subtly hint at: "${note.revealDescription}" (will be revealed in Chapter ${note.targetChapterId})`;
+        foreshadowingInstructions += `\n  Suggestion: ${note.foreshadowingHint}`;
+      });
+    }
+
+    if (notesToReveal.length > 0) {
+      foreshadowingInstructions += '\n\nReveals (important plot points to reveal in this chapter):';
+      notesToReveal.forEach(note => {
+        foreshadowingInstructions += `\n- REVEAL: ${note.revealDescription}`;
+      });
+    }
+  }
+
   return `Write Chapter ${chapterIndex + 1} of the ${genre} story titled "${storyTitle}".
 
 Chapter Title: ${currentChapter.title}
@@ -301,7 +331,7 @@ Instructions:
 - Focus on showing rather than telling.
 - Include dialogue where appropriate.
 - The chapter should be approximately 600-1000 words.
-- Ensure continuity with the provided characters and plot.${characterNote}${readingLevelInstructions}`;
+- Ensure continuity with the provided characters and plot.${characterNote}${readingLevelInstructions}${foreshadowingInstructions}`;
 };
 
 export const generateChapterContent = async (
@@ -313,7 +343,8 @@ export const generateChapterContent = async (
   previousChaptersSummary: string,
   customPrompt?: string,
   readingLevel?: ReadingLevel,
-  customSystemPrompt?: string
+  customSystemPrompt?: string,
+  foreshadowingNotes?: ForeshadowingNote[]
 ): Promise<string> => {
   const currentChapter = outline[chapterIndex];
   const selectedCharacterIds = currentChapter.characterIds;
@@ -326,7 +357,8 @@ export const generateChapterContent = async (
     outline,
     previousChaptersSummary,
     selectedCharacterIds,
-    readingLevel
+    readingLevel,
+    foreshadowingNotes
   );
 
   if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
@@ -413,7 +445,8 @@ export const regenerateChapterContent = async (
   previousChaptersSummary: string,
   userFeedback: string,
   readingLevel?: ReadingLevel,
-  customSystemPrompt?: string
+  customSystemPrompt?: string,
+  foreshadowingNotes?: ForeshadowingNote[]
 ): Promise<string> => {
   const currentChapter = outline[chapterIndex];
   const selectedCharacterIds = currentChapter.characterIds;
@@ -427,7 +460,8 @@ export const regenerateChapterContent = async (
     outline,
     previousChaptersSummary,
     selectedCharacterIds,
-    readingLevel
+    readingLevel,
+    foreshadowingNotes
   );
 
   // Add the user feedback and regeneration instructions

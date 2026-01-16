@@ -6,7 +6,8 @@ import { OutlineEditor } from './components/OutlineEditor';
 import { ManualChapterGenerator } from './components/ManualChapterGenerator';
 import { StoryViewer } from './components/StoryViewer';
 import { TemplateBrowser } from './components/TemplateBrowser';
-import { StoryState, Chapter, Character, ReadingLevel, ChapterOutcome, StoryTemplate } from './types';
+import { ForeshadowingManager } from './components/ForeshadowingManager';
+import { StoryState, Chapter, Character, ReadingLevel, ChapterOutcome, StoryTemplate, ForeshadowingNote } from './types';
 import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt, regenerateChapterContent, generateNextChapterOutcomes } from './services/aiService';
 
 const App: React.FC = () => {
@@ -18,6 +19,7 @@ const App: React.FC = () => {
     characters: [],
     outline: [],
     currentStep: 'setup',
+    foreshadowingNotes: [],
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -51,6 +53,36 @@ const App: React.FC = () => {
 
   const handleUpdateOutline = (updated: Chapter[]) => {
     setState(prev => ({ ...prev, outline: updated }));
+  };
+
+  const handleAddForeshadowingNote = (note: Omit<ForeshadowingNote, 'id' | 'createdAt'>) => {
+    const newNote: ForeshadowingNote = {
+      ...note,
+      id: `foreshadow-${Date.now()}-${Math.random()}`,
+      createdAt: Date.now(),
+    };
+    setState(prev => ({
+      ...prev,
+      foreshadowingNotes: [...(prev.foreshadowingNotes || []), newNote],
+    }));
+  };
+
+  const handleDeleteForeshadowingNote = (noteId: string) => {
+    setState(prev => ({
+      ...prev,
+      foreshadowingNotes: (prev.foreshadowingNotes || []).filter(note => note.id !== noteId),
+    }));
+  };
+
+  const handleUpdateForeshadowingNote = (noteId: string, updatedNote: Omit<ForeshadowingNote, 'id' | 'createdAt'>) => {
+    setState(prev => ({
+      ...prev,
+      foreshadowingNotes: (prev.foreshadowingNotes || []).map(note =>
+        note.id === noteId
+          ? { ...note, ...updatedNote }
+          : note
+      ),
+    }));
   };
 
   const handleConfirmOutline = () => {
@@ -87,7 +119,8 @@ const App: React.FC = () => {
       state.outline,
       previousSummary,
       selectedCharacterIds,
-      state.readingLevel
+      state.readingLevel,
+      state.foreshadowingNotes
     );
 
     setCurrentPrompt(defaultPrompt);
@@ -129,7 +162,8 @@ const App: React.FC = () => {
         previousSummary,
         customPrompt || undefined,
         state.readingLevel,
-        state.systemPrompt
+        state.systemPrompt,
+        state.foreshadowingNotes
       );
 
       // Update with completed content
@@ -227,7 +261,8 @@ const App: React.FC = () => {
         previousSummary,
         feedback,
         state.readingLevel,
-        state.systemPrompt
+        state.systemPrompt,
+        state.foreshadowingNotes
       );
 
       // Update with regenerated content
@@ -278,7 +313,8 @@ const App: React.FC = () => {
             previousSummary,
             undefined,
             state.readingLevel,
-            state.systemPrompt
+            state.systemPrompt,
+            state.foreshadowingNotes
           );
 
           updatedOutline[i] = { ...updatedOutline[i], content, status: 'completed' };
@@ -371,12 +407,21 @@ const App: React.FC = () => {
       )}
 
       {state.currentStep === 'outline' && (
-        <OutlineEditor
-          chapters={state.outline}
-          onUpdate={handleUpdateOutline}
-          onConfirm={handleConfirmOutline}
-          onManualMode={handleManualMode}
-        />
+        <>
+          <ForeshadowingManager
+            foreshadowingNotes={state.foreshadowingNotes || []}
+            numChapters={state.numChapters}
+            onAddNote={handleAddForeshadowingNote}
+            onDeleteNote={handleDeleteForeshadowingNote}
+            onUpdateNote={handleUpdateForeshadowingNote}
+          />
+          <OutlineEditor
+            chapters={state.outline}
+            onUpdate={handleUpdateOutline}
+            onConfirm={handleConfirmOutline}
+            onManualMode={handleManualMode}
+          />
+        </>
       )}
 
       {state.currentStep === 'manual-generation' && (
