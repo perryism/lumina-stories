@@ -7,15 +7,39 @@ interface StoryViewerProps {
   title: string;
   chapters: Chapter[];
   genre?: string;
+  onRegenerateChapter?: (chapterIndex: number, feedback: string) => void;
+  isRegenerating?: boolean;
 }
 
-export const StoryViewer: React.FC<StoryViewerProps> = ({ title, chapters, genre }) => {
+export const StoryViewer: React.FC<StoryViewerProps> = ({
+  title,
+  chapters,
+  genre,
+  onRegenerateChapter,
+  isRegenerating = false
+}) => {
   const [activeChapterIndex, setActiveChapterIndex] = useState(0);
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  const [feedback, setFeedback] = useState('');
 
   const activeChapter = chapters[activeChapterIndex];
 
   const handleExport = () => {
     exportStoryToText(title, chapters, genre);
+  };
+
+  const handleSubmitFeedback = () => {
+    if (feedback.trim() && onRegenerateChapter) {
+      onRegenerateChapter(activeChapterIndex, feedback);
+      setFeedback('');
+      setShowFeedbackForm(false);
+    }
+  };
+
+  const handleChapterChange = (newIndex: number) => {
+    setActiveChapterIndex(newIndex);
+    setShowFeedbackForm(false);
+    setFeedback('');
   };
 
   return (
@@ -26,7 +50,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ title, chapters, genre
         {chapters.map((chapter, index) => (
           <button
             key={chapter.id}
-            onClick={() => setActiveChapterIndex(index)}
+            onClick={() => handleChapterChange(index)}
             className={`w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 ${
               activeChapterIndex === index
                 ? 'bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-100'
@@ -76,10 +100,77 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ title, chapters, genre
             ))}
           </article>
 
-          <div className="mt-16 pt-8 border-t border-slate-100 flex justify-between items-center">
+          {/* Regeneration Feedback Form */}
+          {onRegenerateChapter && (
+            <div className="mt-12 pt-8 border-t border-slate-100">
+              {!showFeedbackForm ? (
+                <button
+                  onClick={() => setShowFeedbackForm(true)}
+                  disabled={isRegenerating}
+                  className="w-full bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 border border-amber-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                  </svg>
+                  {isRegenerating ? 'Regenerating...' : 'Regenerate This Chapter'}
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      What would you like to improve in this chapter?
+                    </label>
+                    <textarea
+                      value={feedback}
+                      onChange={(e) => setFeedback(e.target.value)}
+                      placeholder="E.g., 'Add more dialogue between the characters', 'Make the action scene more intense', 'Develop the emotional connection more', etc."
+                      className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-y min-h-[120px]"
+                      disabled={isRegenerating}
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleSubmitFeedback}
+                      disabled={!feedback.trim() || isRegenerating}
+                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {isRegenerating ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Regenerating...
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" />
+                          </svg>
+                          Regenerate Chapter
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowFeedbackForm(false);
+                        setFeedback('');
+                      }}
+                      disabled={isRegenerating}
+                      className="px-6 py-3 border border-slate-300 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="mt-8 pt-8 border-t border-slate-100 flex justify-between items-center">
             <button
               disabled={activeChapterIndex === 0}
-              onClick={() => setActiveChapterIndex(prev => prev - 1)}
+              onClick={() => handleChapterChange(activeChapterIndex - 1)}
               className="text-indigo-600 font-bold disabled:opacity-30 flex items-center gap-2"
             >
                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -89,7 +180,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ title, chapters, genre
             </button>
             <button
               disabled={activeChapterIndex === chapters.length - 1}
-              onClick={() => setActiveChapterIndex(prev => prev + 1)}
+              onClick={() => handleChapterChange(activeChapterIndex + 1)}
               className="text-indigo-600 font-bold disabled:opacity-30 flex items-center gap-2"
             >
               Next

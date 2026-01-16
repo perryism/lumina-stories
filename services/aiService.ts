@@ -388,3 +388,81 @@ export const summarizePreviousChapters = async (chapters: Chapter[]): Promise<st
   }
 };
 
+// Regenerate a chapter based on user feedback
+export const regenerateChapterContent = async (
+  storyTitle: string,
+  genre: string,
+  characters: Character[],
+  chapterIndex: number,
+  outline: Chapter[],
+  previousChaptersSummary: string,
+  userFeedback: string,
+  readingLevel?: ReadingLevel
+): Promise<string> => {
+  const currentChapter = outline[chapterIndex];
+  const selectedCharacterIds = currentChapter.characterIds;
+
+  // Build the base prompt similar to the original generation
+  const basePrompt = buildChapterPrompt(
+    storyTitle,
+    genre,
+    characters,
+    chapterIndex,
+    outline,
+    previousChaptersSummary,
+    selectedCharacterIds,
+    readingLevel
+  );
+
+  // Add the user feedback and regeneration instructions
+  const regenerationPrompt = `${basePrompt}
+
+IMPORTANT: This is a REGENERATION of the chapter based on user feedback.
+
+Previous version of the chapter:
+${currentChapter.content}
+
+User Feedback:
+${userFeedback}
+
+Please rewrite the chapter taking the user's feedback into account. Make sure to:
+1. Address all points mentioned in the feedback
+2. Maintain consistency with the story's tone, style, and previous chapters
+3. Keep the core plot points from the chapter summary
+4. Improve upon the previous version based on the specific feedback provided
+
+Generate the improved chapter content now:`;
+
+  if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
+    const client = AI_PROVIDER === "local" ? localClient : openaiClient;
+    const model = AI_PROVIDER === "local" ? MODELS.local.chapter : MODELS.openai.chapter;
+
+    const response = await client.chat.completions.create({
+      model: model,
+      messages: [
+        {
+          role: "system",
+          content: `You are a professional fiction writer specializing in ${genre} stories. You are revising a chapter based on user feedback. Write engaging, vivid prose with strong character development and compelling narrative flow.`,
+        },
+        { role: "user", content: regenerationPrompt },
+      ],
+      temperature: 0.8,
+      top_p: 0.95,
+    });
+
+    return response.choices[0].message.content || "Failed to regenerate content.";
+  } else {
+    // Gemini implementation
+    const response = await geminiClient.models.generateContent({
+      model: MODELS.gemini.chapter,
+      contents: regenerationPrompt,
+      config: {
+        temperature: 0.8,
+        topP: 0.95,
+        thinkingConfig: { thinkingBudget: 16000 },
+      },
+    });
+
+    return response.text || "Failed to regenerate content.";
+  }
+};

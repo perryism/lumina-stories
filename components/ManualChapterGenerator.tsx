@@ -10,6 +10,7 @@ interface ManualChapterGeneratorProps {
   onUpdateChapter: (index: number, field: keyof Chapter, value: any) => void;
   onUpdatePrompt: (prompt: string) => void;
   onGenerateNext: (customPrompt: string) => void;
+  onRegenerateChapter?: (chapterIndex: number, feedback: string) => void;
   onViewStory: () => void;
   isGenerating: boolean;
 }
@@ -22,12 +23,15 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   onUpdateChapter,
   onUpdatePrompt,
   onGenerateNext,
+  onRegenerateChapter,
   onViewStory,
   isGenerating,
 }) => {
   const [expandedChapter, setExpandedChapter] = useState<number | null>(null);
   const [showPromptEditor, setShowPromptEditor] = useState(false);
   const [showCharacterSelector, setShowCharacterSelector] = useState(false);
+  const [revisionFeedback, setRevisionFeedback] = useState<{ [key: number]: string }>({});
+  const [showRevisionForm, setShowRevisionForm] = useState<number | null>(null);
 
   const nextChapterIndex = chapters.findIndex(ch => ch.status === 'pending');
   const allCompleted = chapters.every(ch => ch.status === 'completed');
@@ -189,6 +193,79 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                               {chapter.content.split('\n').map((para, i) => (
                                 para.trim() ? <p key={i} className="mb-3">{para}</p> : <br key={i} />
                               ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Revision Form for completed chapters */}
+                      {isCompleted && onRegenerateChapter && (
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                          {showRevisionForm !== index ? (
+                            <button
+                              onClick={() => setShowRevisionForm(index)}
+                              disabled={isGenerating}
+                              className="w-full bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold py-2.5 px-4 rounded-lg transition-all flex items-center justify-center gap-2 border border-amber-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                              </svg>
+                              Revise This Chapter
+                            </button>
+                          ) : (
+                            <div className="space-y-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-2 uppercase tracking-wide">
+                                  Revision Instructions
+                                </label>
+                                <textarea
+                                  value={revisionFeedback[index] || ''}
+                                  onChange={(e) => setRevisionFeedback({ ...revisionFeedback, [index]: e.target.value })}
+                                  placeholder="Describe what you'd like to change or improve in this chapter. For example:&#10;• Add more dialogue between characters&#10;• Make the action scene more intense&#10;• Develop the emotional connection&#10;• Change the pacing or tone&#10;• Add more descriptive details"
+                                  className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none resize-y min-h-[100px]"
+                                  disabled={isGenerating}
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => {
+                                    if (revisionFeedback[index]?.trim()) {
+                                      onRegenerateChapter(index, revisionFeedback[index]);
+                                      setRevisionFeedback({ ...revisionFeedback, [index]: '' });
+                                      setShowRevisionForm(null);
+                                    }
+                                  }}
+                                  disabled={!revisionFeedback[index]?.trim() || isGenerating}
+                                  className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+                                >
+                                  {isGenerating ? (
+                                    <>
+                                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                      </svg>
+                                      Regenerating...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" />
+                                      </svg>
+                                      Regenerate
+                                    </>
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setShowRevisionForm(null);
+                                    setRevisionFeedback({ ...revisionFeedback, [index]: '' });
+                                  }}
+                                  disabled={isGenerating}
+                                  className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>

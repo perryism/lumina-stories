@@ -6,7 +6,7 @@ import { OutlineEditor } from './components/OutlineEditor';
 import { ManualChapterGenerator } from './components/ManualChapterGenerator';
 import { StoryViewer } from './components/StoryViewer';
 import { StoryState, Chapter, Character, ReadingLevel } from './types';
-import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt } from './services/aiService';
+import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt, regenerateChapterContent } from './services/aiService';
 
 const App: React.FC = () => {
   const [state, setState] = useState<StoryState>({
@@ -144,6 +144,49 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, currentStep: 'reader' }));
   };
 
+  const handleRegenerateChapter = async (chapterIndex: number, feedback: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const updatedOutline = [...state.outline];
+
+      // Mark as generating
+      updatedOutline[chapterIndex] = { ...updatedOutline[chapterIndex], status: 'generating' };
+      setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+
+      // Get previous chapters summary
+      const completedChapters = updatedOutline.slice(0, chapterIndex).filter(c => c.status === 'completed');
+      const previousSummary = completedChapters.length > 0
+        ? await summarizePreviousChapters(completedChapters)
+        : "";
+
+      // Regenerate content with user feedback
+      const content = await regenerateChapterContent(
+        state.title,
+        state.genre,
+        state.characters,
+        chapterIndex,
+        updatedOutline,
+        previousSummary,
+        feedback,
+        state.readingLevel
+      );
+
+      // Update with regenerated content
+      updatedOutline[chapterIndex] = { ...updatedOutline[chapterIndex], content, status: 'completed' };
+      setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+    } catch (err: any) {
+      console.error("Chapter regeneration failed", err);
+      const updatedOutline = [...state.outline];
+      updatedOutline[chapterIndex] = { ...updatedOutline[chapterIndex], status: 'completed' }; // Keep as completed with old content
+      setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+      setError(`Failed to regenerate chapter ${chapterIndex + 1}. Please try again.`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Update prompt when chapter outline changes in manual mode
   useEffect(() => {
     if (state.currentStep === 'manual-generation') {
@@ -249,6 +292,7 @@ const App: React.FC = () => {
           onUpdateChapter={handleUpdateChapter}
           onUpdatePrompt={setCurrentPrompt}
           onGenerateNext={handleGenerateNextChapter}
+          onRegenerateChapter={handleRegenerateChapter}
           onViewStory={handleViewStory}
           isGenerating={isLoading}
         />
@@ -309,7 +353,13 @@ const App: React.FC = () => {
       )}
 
       {state.currentStep === 'reader' && (
-        <StoryViewer title={state.title} chapters={state.outline} genre={state.genre} />
+        <StoryViewer
+          title={state.title}
+          chapters={state.outline}
+          genre={state.genre}
+          onRegenerateChapter={handleRegenerateChapter}
+          isRegenerating={isLoading}
+        />
       )}
     </Layout>
   );
