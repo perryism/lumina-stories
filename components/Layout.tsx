@@ -3,9 +3,11 @@ import React from 'react';
 
 interface LayoutProps {
   children: React.ReactNode;
+  onTemplatesClick?: () => void;
+  onNewStoryClick?: () => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, onTemplatesClick, onNewStoryClick }) => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
@@ -18,8 +20,16 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
           <nav className="hidden md:flex items-center space-x-6">
             <span className="text-sm font-medium text-slate-500 hover:text-indigo-600 cursor-pointer">Library</span>
-            <span className="text-sm font-medium text-slate-500 hover:text-indigo-600 cursor-pointer">Templates</span>
-            <button className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-full text-sm font-semibold hover:bg-indigo-100 transition-colors">
+            <span
+              onClick={onTemplatesClick}
+              className="text-sm font-medium text-slate-500 hover:text-indigo-600 cursor-pointer transition-colors"
+            >
+              Templates
+            </span>
+            <button
+              onClick={onNewStoryClick}
+              className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-full text-sm font-semibold hover:bg-indigo-100 transition-colors"
+            >
               New Story
             </button>
           </nav>

@@ -40,3 +40,13 @@ export enum GenerationStatus {
   COMPLETE = 'complete',
   ERROR = 'error'
 }
+
+export interface StoryTemplate {
+  title: string;
+  genre: string;
+  numChapters: number;
+  readingLevel: ReadingLevel;
+  plotOutline: string;
+  characters: Character[];
+  systemPrompt?: string;
+}

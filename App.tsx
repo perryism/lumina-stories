@@ -5,7 +5,8 @@ import { StoryForm } from './components/StoryForm';
 import { OutlineEditor } from './components/OutlineEditor';
 import { ManualChapterGenerator } from './components/ManualChapterGenerator';
 import { StoryViewer } from './components/StoryViewer';
-import { StoryState, Chapter, Character, ReadingLevel, ChapterOutcome } from './types';
+import { TemplateBrowser } from './components/TemplateBrowser';
+import { StoryState, Chapter, Character, ReadingLevel, ChapterOutcome, StoryTemplate } from './types';
 import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt, regenerateChapterContent, generateNextChapterOutcomes } from './services/aiService';
 
 const App: React.FC = () => {
@@ -27,6 +28,8 @@ const App: React.FC = () => {
   const [chapterOutcomes, setChapterOutcomes] = useState<ChapterOutcome[]>([]);
   const [isContinuousMode, setIsContinuousMode] = useState(false);
   const [initialChapterCount, setInitialChapterCount] = useState(0);
+  const [showTemplateBrowser, setShowTemplateBrowser] = useState(false);
+  const [templateToLoad, setTemplateToLoad] = useState<StoryTemplate | null>(null);
 
   const handleStartStory = async (data: { title: string; genre: string; numChapters: number; readingLevel: ReadingLevel; characters: Character[]; initialIdea: string; systemPrompt?: string }) => {
     setIsLoading(true);
@@ -307,8 +310,35 @@ const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentStep]);
 
+  const handleTemplatesClick = () => {
+    setShowTemplateBrowser(true);
+  };
+
+  const handleNewStoryClick = () => {
+    // Reset to setup step
+    setState({
+      title: '',
+      genre: 'Fantasy',
+      numChapters: 5,
+      readingLevel: 'young-adult',
+      characters: [],
+      outline: [],
+      currentStep: 'setup',
+    });
+    setError(null);
+    setTemplateToLoad(null);
+  };
+
+  const handleSelectTemplate = (template: StoryTemplate) => {
+    setTemplateToLoad(template);
+    setShowTemplateBrowser(false);
+  };
+
   return (
-    <Layout>
+    <Layout
+      onTemplatesClick={handleTemplatesClick}
+      onNewStoryClick={handleNewStoryClick}
+    >
       {error && (
         <div className="max-w-2xl mx-auto mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -326,7 +356,18 @@ const App: React.FC = () => {
       )}
 
       {state.currentStep === 'setup' && (
-        <StoryForm onStart={handleStartStory} isLoading={isLoading} />
+        <StoryForm
+          onStart={handleStartStory}
+          isLoading={isLoading}
+          initialTemplate={templateToLoad || undefined}
+        />
+      )}
+
+      {showTemplateBrowser && (
+        <TemplateBrowser
+          onSelectTemplate={handleSelectTemplate}
+          onClose={() => setShowTemplateBrowser(false)}
+        />
       )}
 
       {state.currentStep === 'outline' && (

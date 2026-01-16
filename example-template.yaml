@@ -1,0 +1,25 @@
+# Lumina Stories Template
+# Generated: 2026-01-16T00:00:00.000Z
+
+title: "The Last Embers"
+genre: "Fantasy"
+numChapters: 5
+readingLevel: "young-adult"
+
+plotOutline: |
+  A lost prince discovers he can manipulate time, but every use ages him a year. He must decide whether to save his kingdom from an ancient evil or preserve his own life. Along the way, he learns that true power comes not from magic, but from the bonds he forms with unlikely allies.
+
+systemPrompt: |
+  You are a creative storytelling assistant specializing in Fantasy fiction. Write in a vivid, immersive style with rich world-building and character development. Use descriptive language that paints clear mental images. Balance action, dialogue, and introspection. Create tension and emotional depth while maintaining an engaging pace suitable for young adult readers.
+
+characters:
+  - id: "1"
+    name: "Prince Aldric"
+    attributes: "Brave but reckless, haunted by his past, skilled swordsman, carries the burden of his time-manipulation curse"
+  - id: "2"
+    name: "Sera"
+    attributes: "Mysterious wanderer, expert archer, hides a secret connection to the ancient evil, fiercely loyal once trust is earned"
+  - id: "3"
+    name: "Grimwald"
+    attributes: "Elderly wizard, mentor figure, wise but cryptic, knows more about Aldric's powers than he reveals"
+

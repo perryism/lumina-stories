@@ -1,14 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { Character, ReadingLevel } from '../types';
+import { Character, ReadingLevel, StoryTemplate } from '../types';
 import { getDefaultSystemPrompt } from '../services/aiService';
+import { saveTemplateToTemplatesFolder, saveTemplateToStorage } from '../utils/templateService';
 
 interface StoryFormProps {
   onStart: (data: { title: string; genre: string; numChapters: number; readingLevel: ReadingLevel; characters: Character[]; initialIdea: string; systemPrompt?: string }) => void;
   isLoading: boolean;
+  initialTemplate?: StoryTemplate;
 }
 
-export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading }) => {
+export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading, initialTemplate }) => {
   const [title, setTitle] = useState('');
   const [genre, setGenre] = useState('Fantasy');
   const [numChapters, setNumChapters] = useState(5);
@@ -19,11 +21,32 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading }) => {
   const [characters, setCharacters] = useState<Character[]>([
     { id: '1', name: '', attributes: '' }
   ]);
+  const [templateMessage, setTemplateMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Update system prompt when genre changes
   useEffect(() => {
     setSystemPrompt(getDefaultSystemPrompt(genre));
   }, [genre]);
+
+  // Load initial template if provided
+  useEffect(() => {
+    if (initialTemplate) {
+      setTitle(initialTemplate.title);
+      setGenre(initialTemplate.genre);
+      setNumChapters(initialTemplate.numChapters);
+      setReadingLevel(initialTemplate.readingLevel);
+      setInitialIdea(initialTemplate.plotOutline);
+
+      if (initialTemplate.characters && initialTemplate.characters.length > 0) {
+        setCharacters(initialTemplate.characters);
+      }
+
+      if (initialTemplate.systemPrompt) {
+        setSystemPrompt(initialTemplate.systemPrompt);
+        setShowAdvanced(true);
+      }
+    }
+  }, [initialTemplate]);
 
   const addCharacter = () => {
     setCharacters([...characters, { id: Date.now().toString(), name: '', attributes: '' }]);
@@ -51,6 +74,40 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading }) => {
     });
   };
 
+  const handleSaveTemplate = async () => {
+    try {
+      const template: StoryTemplate = {
+        title,
+        genre,
+        numChapters,
+        readingLevel,
+        plotOutline: initialIdea,
+        characters: characters.filter(c => c.name.trim()),
+        systemPrompt: systemPrompt.trim() || undefined
+      };
+
+      // Save to localStorage
+      saveTemplateToStorage(template);
+
+      // Save to templates folder via API
+      const filename = await saveTemplateToTemplatesFolder(template);
+      setTemplateMessage({
+        type: 'success',
+        text: `Template saved as templates/${filename}! Refresh to see it in the template browser.`
+      });
+      setTimeout(() => setTemplateMessage(null), 5000);
+    } catch (error) {
+      if ((error as Error).message === 'File save cancelled') {
+        // User cancelled, don't show error
+        return;
+      }
+      setTemplateMessage({ type: 'error', text: `Failed to save template: ${(error as Error).message}` });
+      setTimeout(() => setTemplateMessage(null), 8000);
+    }
+  };
+
+
+
   const genres = ['Fantasy', 'Sci-Fi', 'Mystery', 'Romance', 'Horror', 'Thriller', 'Historical', 'Adventure'];
 
   const readingLevels: { value: ReadingLevel; label: string; description: string }[] = [
@@ -62,8 +119,44 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading }) => {
 
   return (
     <div className="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-xl border border-slate-100">
-      <h2 className="text-3xl font-bold text-slate-900 mb-2">Create Your Epic</h2>
-      <p className="text-slate-500 mb-8">Define your world, your heroes, and the spark of your story.</p>
+      <div className="flex justify-between items-start mb-6">
+        <div>
+          <h2 className="text-3xl font-bold text-slate-900 mb-2">Create Your Epic</h2>
+          <p className="text-slate-500">Define your world, your heroes, and the spark of your story.</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleSaveTemplate}
+          disabled={isLoading}
+          className="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          title="Save current form as template"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+          Save
+        </button>
+      </div>
+
+      {/* Template message notification */}
+      {templateMessage && (
+        <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
+          templateMessage.type === 'success'
+            ? 'bg-green-50 text-green-700 border border-green-200'
+            : 'bg-red-50 text-red-700 border border-red-200'
+        }`}>
+          {templateMessage.type === 'success' ? (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+          )}
+          <span className="text-sm font-medium">{templateMessage.text}</span>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
