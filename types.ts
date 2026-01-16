@@ -14,10 +14,13 @@ export interface Chapter {
   characterIds?: string[]; // IDs of characters participating in this chapter
 }
 
+export type ReadingLevel = 'elementary' | 'middle-grade' | 'young-adult' | 'adult';
+
 export interface StoryState {
   title: string;
   genre: string;
   numChapters: number;
+  readingLevel: ReadingLevel;
   characters: Character[];
   outline: Chapter[];
   currentStep: 'setup' | 'outline' | 'manual-generation' | 'generating' | 'reader';

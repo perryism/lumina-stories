@@ -1,7 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import OpenAI from "openai";
-import { Character, Chapter } from "../types";
+import { Character, Chapter, ReadingLevel } from "../types";
 
 // Configuration
 export type AIProvider = "gemini" | "openai" | "local";
@@ -40,20 +40,64 @@ const MODELS = {
   },
 };
 
+// Helper function to get reading level instructions
+const getReadingLevelInstructions = (readingLevel: ReadingLevel): string => {
+  const instructions = {
+    'elementary': `
+- Use simple, clear vocabulary appropriate for ages 6-10
+- Keep sentences short and straightforward
+- Focus on concrete concepts and clear cause-and-effect
+- Use age-appropriate themes and content
+- Avoid complex metaphors or abstract ideas
+- Include descriptive but simple language`,
+    'middle-grade': `
+- Use moderate vocabulary appropriate for ages 8-12
+- Mix simple and compound sentences for variety
+- Include relatable themes and age-appropriate challenges
+- Use some figurative language and descriptive details
+- Balance action with character development
+- Keep content appropriate for pre-teens`,
+    'young-adult': `
+- Use sophisticated vocabulary appropriate for ages 12-18
+- Employ varied sentence structures and pacing
+- Explore complex themes like identity, relationships, and moral dilemmas
+- Include nuanced character development and emotional depth
+- Use literary devices like metaphor, symbolism, and foreshadowing
+- Address mature themes while remaining age-appropriate`,
+    'adult': `
+- Use advanced vocabulary and literary techniques
+- Employ complex sentence structures and varied pacing
+- Explore nuanced, mature themes without restriction
+- Include sophisticated character psychology and motivations
+- Use literary devices extensively (symbolism, metaphor, irony, etc.)
+- Address any themes or content as appropriate for the story`
+  };
+  return instructions[readingLevel];
+};
+
 export const generateOutline = async (
   title: string,
   genre: string,
   numChapters: number,
   characters: Character[],
-  initialIdea: string
+  initialIdea: string,
+  readingLevel: ReadingLevel
 ): Promise<Partial<Chapter>[]> => {
   const charactersPrompt = characters
     .map((c) => `${c.name}: ${c.attributes}`)
     .join("\n");
 
+  const readingLevelNote = {
+    'elementary': 'elementary school readers (ages 6-10)',
+    'middle-grade': 'middle grade readers (ages 8-12)',
+    'young-adult': 'young adult readers (ages 12-18)',
+    'adult': 'adult readers (ages 18+)'
+  }[readingLevel];
+
   const prompt = `
     Generate a detailed story outline for a ${genre} story titled "${title}".
     The story should have exactly ${numChapters} chapters.
+    Target audience: ${readingLevelNote}
 
     Core Idea: ${initialIdea}
 
@@ -61,6 +105,7 @@ export const generateOutline = async (
     ${charactersPrompt}
 
     For each chapter, provide a catchy title and a 2-3 sentence summary of the plot developments.
+    Ensure the themes, complexity, and content are appropriate for ${readingLevelNote}.
   `;
 
   if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
@@ -207,7 +252,8 @@ export const buildChapterPrompt = (
   chapterIndex: number,
   outline: Chapter[],
   previousChaptersSummary: string,
-  selectedCharacterIds?: string[]
+  selectedCharacterIds?: string[],
+  readingLevel?: ReadingLevel
 ): string => {
   const currentChapter = outline[chapterIndex];
 
@@ -222,6 +268,10 @@ export const buildChapterPrompt = (
 
   const characterNote = selectedCharacterIds && selectedCharacterIds.length > 0
     ? `\n- Focus on these characters: ${chapterCharacters.map(c => c.name).join(', ')}`
+    : '';
+
+  const readingLevelInstructions = readingLevel
+    ? `\n\nReading Level Guidelines:${getReadingLevelInstructions(readingLevel)}`
     : '';
 
   return `Write Chapter ${chapterIndex + 1} of the ${genre} story titled "${storyTitle}".
@@ -240,7 +290,7 @@ Instructions:
 - Focus on showing rather than telling.
 - Include dialogue where appropriate.
 - The chapter should be approximately 600-1000 words.
-- Ensure continuity with the provided characters and plot.${characterNote}`;
+- Ensure continuity with the provided characters and plot.${characterNote}${readingLevelInstructions}`;
 };
 
 export const generateChapterContent = async (
@@ -250,15 +300,21 @@ export const generateChapterContent = async (
   chapterIndex: number,
   outline: Chapter[],
   previousChaptersSummary: string,
-  customPrompt?: string
+  customPrompt?: string,
+  readingLevel?: ReadingLevel
 ): Promise<string> => {
+  const currentChapter = outline[chapterIndex];
+  const selectedCharacterIds = currentChapter.characterIds;
+
   const prompt = customPrompt || buildChapterPrompt(
     storyTitle,
     genre,
     characters,
     chapterIndex,
     outline,
-    previousChaptersSummary
+    previousChaptersSummary,
+    selectedCharacterIds,
+    readingLevel
   );
 
   if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {

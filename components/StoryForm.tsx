@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { Character } from '../types';
+import { Character, ReadingLevel } from '../types';
 
 interface StoryFormProps {
-  onStart: (data: { title: string; genre: string; numChapters: number; characters: Character[]; initialIdea: string }) => void;
+  onStart: (data: { title: string; genre: string; numChapters: number; readingLevel: ReadingLevel; characters: Character[]; initialIdea: string }) => void;
   isLoading: boolean;
 }
 
@@ -11,6 +11,7 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading }) => {
   const [title, setTitle] = useState('');
   const [genre, setGenre] = useState('Fantasy');
   const [numChapters, setNumChapters] = useState(5);
+  const [readingLevel, setReadingLevel] = useState<ReadingLevel>('young-adult');
   const [initialIdea, setInitialIdea] = useState('');
   const [characters, setCharacters] = useState<Character[]>([
     { id: '1', name: '', attributes: '' }
@@ -31,10 +32,17 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !initialIdea) return;
-    onStart({ title, genre, numChapters, characters: characters.filter(c => c.name.trim()), initialIdea });
+    onStart({ title, genre, numChapters, readingLevel, characters: characters.filter(c => c.name.trim()), initialIdea });
   };
 
   const genres = ['Fantasy', 'Sci-Fi', 'Mystery', 'Romance', 'Horror', 'Thriller', 'Historical', 'Adventure'];
+
+  const readingLevels: { value: ReadingLevel; label: string; description: string }[] = [
+    { value: 'elementary', label: 'Elementary (Ages 6-10)', description: 'Simple vocabulary, short sentences, clear concepts' },
+    { value: 'middle-grade', label: 'Middle Grade (Ages 8-12)', description: 'Moderate vocabulary, engaging plots, relatable themes' },
+    { value: 'young-adult', label: 'Young Adult (Ages 12-18)', description: 'Complex themes, sophisticated language, mature content' },
+    { value: 'adult', label: 'Adult (Ages 18+)', description: 'Advanced vocabulary, nuanced themes, unrestricted content' },
+  ];
 
   return (
     <div className="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-xl border border-slate-100">
@@ -42,17 +50,18 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading }) => {
       <p className="text-slate-500 mb-8">Define your world, your heroes, and the spark of your story.</p>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-slate-700">Story Title</label>
+          <input
+            required
+            className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+            placeholder="The Last Embers..."
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">Story Title</label>
-            <input
-              required
-              className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-              placeholder="The Last Embers..."
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">Genre</label>
             <select
@@ -63,19 +72,59 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading }) => {
               {genres.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700">Number of Chapters</label>
+            <input
+              type="number"
+              min="1"
+              max="10"
+              className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+              value={numChapters}
+              onChange={(e) => setNumChapters(parseInt(e.target.value) || 1)}
+            />
+          </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-slate-700">Number of Chapters (1-10)</label>
-          <input
-            type="range"
-            min="1"
-            max="10"
-            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-            value={numChapters}
-            onChange={(e) => setNumChapters(parseInt(e.target.value))}
-          />
-          <div className="text-center font-bold text-indigo-600">{numChapters} Chapters</div>
+          <label className="text-sm font-semibold text-slate-700">Reading Level</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {readingLevels.map((level) => (
+              <button
+                key={level.value}
+                type="button"
+                onClick={() => setReadingLevel(level.value)}
+                className={`p-4 rounded-lg border-2 text-left transition-all ${
+                  readingLevel === level.value
+                    ? 'border-indigo-500 bg-indigo-50'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  <div className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                    readingLevel === level.value
+                      ? 'border-indigo-500 bg-indigo-500'
+                      : 'border-slate-300'
+                  }`}>
+                    {readingLevel === level.value && (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className={`font-semibold text-sm ${
+                      readingLevel === level.value ? 'text-indigo-700' : 'text-slate-700'
+                    }`}>
+                      {level.label}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {level.description}
+                    </div>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -101,7 +150,7 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading }) => {
               + Add Character
             </button>
           </div>
-          
+
           {characters.map((char, index) => (
             <div key={char.id} className="p-4 bg-slate-50 rounded-xl space-y-3 relative group">
               {characters.length > 1 && (

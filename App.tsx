@@ -5,7 +5,7 @@ import { StoryForm } from './components/StoryForm';
 import { OutlineEditor } from './components/OutlineEditor';
 import { ManualChapterGenerator } from './components/ManualChapterGenerator';
 import { StoryViewer } from './components/StoryViewer';
-import { StoryState, Chapter, Character } from './types';
+import { StoryState, Chapter, Character, ReadingLevel } from './types';
 import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt } from './services/aiService';
 
 const App: React.FC = () => {
@@ -13,6 +13,7 @@ const App: React.FC = () => {
     title: '',
     genre: 'Fantasy',
     numChapters: 5,
+    readingLevel: 'young-adult',
     characters: [],
     outline: [],
     currentStep: 'setup',
@@ -24,11 +25,11 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [currentPrompt, setCurrentPrompt] = useState<string>('');
 
-  const handleStartStory = async (data: { title: string; genre: string; numChapters: number; characters: Character[]; initialIdea: string }) => {
+  const handleStartStory = async (data: { title: string; genre: string; numChapters: number; readingLevel: ReadingLevel; characters: Character[]; initialIdea: string }) => {
     setIsLoading(true);
     setError(null);
     try {
-      const outline = await generateOutline(data.title, data.genre, data.numChapters, data.characters, data.initialIdea);
+      const outline = await generateOutline(data.title, data.genre, data.numChapters, data.characters, data.initialIdea, data.readingLevel);
       setState(prev => ({
         ...prev,
         ...data,
@@ -75,7 +76,8 @@ const App: React.FC = () => {
       nextIndex,
       state.outline,
       previousSummary,
-      selectedCharacterIds
+      selectedCharacterIds,
+      state.readingLevel
     );
 
     setCurrentPrompt(defaultPrompt);
@@ -115,7 +117,8 @@ const App: React.FC = () => {
         nextIndex,
         updatedOutline,
         previousSummary,
-        customPrompt || undefined
+        customPrompt || undefined,
+        state.readingLevel
       );
 
       // Update with completed content
@@ -172,7 +175,9 @@ const App: React.FC = () => {
             state.characters,
             i,
             updatedOutline,
-            previousSummary
+            previousSummary,
+            undefined,
+            state.readingLevel
           );
 
           updatedOutline[i] = { ...updatedOutline[i], content, status: 'completed' };
