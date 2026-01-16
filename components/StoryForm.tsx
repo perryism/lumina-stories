@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Character, ReadingLevel } from '../types';
+import { getDefaultSystemPrompt } from '../services/aiService';
 
 interface StoryFormProps {
   onStart: (data: { title: string; genre: string; numChapters: number; readingLevel: ReadingLevel; characters: Character[]; initialIdea: string; systemPrompt?: string }) => void;
@@ -13,11 +14,16 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading }) => {
   const [numChapters, setNumChapters] = useState(5);
   const [readingLevel, setReadingLevel] = useState<ReadingLevel>('young-adult');
   const [initialIdea, setInitialIdea] = useState('');
-  const [systemPrompt, setSystemPrompt] = useState('');
+  const [systemPrompt, setSystemPrompt] = useState(getDefaultSystemPrompt('Fantasy'));
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [characters, setCharacters] = useState<Character[]>([
     { id: '1', name: '', attributes: '' }
   ]);
+
+  // Update system prompt when genre changes
+  useEffect(() => {
+    setSystemPrompt(getDefaultSystemPrompt(genre));
+  }, [genre]);
 
   const addCharacter = () => {
     setCharacters([...characters, { id: Date.now().toString(), name: '', attributes: '' }]);
@@ -170,18 +176,17 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading }) => {
           {showAdvanced && (
             <div className="space-y-2 pl-6">
               <label className="text-sm font-semibold text-slate-700">
-                Custom System Prompt
-                <span className="text-xs font-normal text-slate-500 ml-2">(Optional)</span>
+                System Prompt
+                <span className="text-xs font-normal text-slate-500 ml-2">(Edit to customize)</span>
               </label>
               <textarea
                 rows={4}
                 className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
-                placeholder="You are a creative story writer specializing in epic fantasy tales with rich world-building and complex characters..."
                 value={systemPrompt}
                 onChange={(e) => setSystemPrompt(e.target.value)}
               />
               <p className="text-xs text-slate-500">
-                Customize how the AI approaches writing your story. Leave blank to use the default prompt based on your genre and reading level.
+                This defines how the AI approaches writing your story. The default is shown above based on your genre. Edit it to customize the AI's behavior.
               </p>
             </div>
           )}

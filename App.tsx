@@ -345,6 +345,7 @@ const App: React.FC = () => {
           characters={state.characters}
           currentPrompt={currentPrompt}
           systemPrompt={state.systemPrompt}
+          genre={state.genre}
           onUpdateChapter={handleUpdateChapter}
           onUpdatePrompt={setCurrentPrompt}
           onUpdateSystemPrompt={(prompt) => setState(prev => ({ ...prev, systemPrompt: prompt }))}

@@ -75,6 +75,11 @@ const getReadingLevelInstructions = (readingLevel: ReadingLevel): string => {
   return instructions[readingLevel];
 };
 
+// Helper function to get the default system prompt for chapter generation
+export const getDefaultSystemPrompt = (genre: string): string => {
+  return `You are a professional fiction writer specializing in ${genre} stories. Write engaging, vivid prose with strong character development and compelling narrative flow.`;
+};
+
 export const generateOutline = async (
   title: string,
   genre: string,

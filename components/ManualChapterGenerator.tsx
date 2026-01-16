@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Chapter, Character, ChapterOutcome } from '../types';
+import { getDefaultSystemPrompt } from '../services/aiService';
 
 interface ManualChapterGeneratorProps {
   title: string;
@@ -8,6 +9,7 @@ interface ManualChapterGeneratorProps {
   characters: Character[];
   currentPrompt: string;
   systemPrompt?: string;
+  genre?: string;
   onUpdateChapter: (index: number, field: keyof Chapter, value: any) => void;
   onUpdatePrompt: (prompt: string) => void;
   onUpdateSystemPrompt?: (prompt: string) => void;
@@ -26,6 +28,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   characters,
   currentPrompt,
   systemPrompt = '',
+  genre = 'Fantasy',
   onUpdateChapter,
   onUpdatePrompt,
   onUpdateSystemPrompt,
@@ -37,6 +40,23 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   chapterOutcomes = [],
   onSelectOutcome,
 }) => {
+  const [localSystemPrompt, setLocalSystemPrompt] = useState(systemPrompt || getDefaultSystemPrompt(genre));
+
+  // Update local system prompt when prop changes or when it's empty
+  useEffect(() => {
+    if (systemPrompt) {
+      setLocalSystemPrompt(systemPrompt);
+    } else if (!localSystemPrompt) {
+      setLocalSystemPrompt(getDefaultSystemPrompt(genre));
+    }
+  }, [systemPrompt, genre]);
+
+  const handleSystemPromptChange = (value: string) => {
+    setLocalSystemPrompt(value);
+    if (onUpdateSystemPrompt) {
+      onUpdateSystemPrompt(value);
+    }
+  };
   const [expandedChapter, setExpandedChapter] = useState<number | null>(null);
   const [showPromptEditor, setShowPromptEditor] = useState(false);
   const [showCharacterSelector, setShowCharacterSelector] = useState(false);
@@ -359,13 +379,12 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                       System Prompt
                     </label>
                     <textarea
-                      value={systemPrompt}
-                      onChange={(e) => onUpdateSystemPrompt(e.target.value)}
+                      value={localSystemPrompt}
+                      onChange={(e) => handleSystemPromptChange(e.target.value)}
                       className="w-full text-sm text-slate-700 bg-white border border-amber-300 rounded-lg p-3 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all resize-y min-h-[100px]"
-                      placeholder="You are a professional fiction writer specializing in epic fantasy tales..."
                     />
                     <p className="text-xs text-amber-700">
-                      Define the AI's role and writing style. Leave blank to use the default based on your genre.
+                      Define the AI's role and writing style. Edit the text above to customize.
                     </p>
                   </div>
                 )}
