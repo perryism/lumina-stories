@@ -81,7 +81,8 @@ export const generateOutline = async (
   numChapters: number,
   characters: Character[],
   initialIdea: string,
-  readingLevel: ReadingLevel
+  readingLevel: ReadingLevel,
+  customSystemPrompt?: string
 ): Promise<Partial<Chapter>[]> => {
   const charactersPrompt = characters
     .map((c) => `${c.name}: ${c.attributes}`)
@@ -112,12 +113,17 @@ export const generateOutline = async (
     const client = AI_PROVIDER === "local" ? localClient : openaiClient;
     const model = AI_PROVIDER === "local" ? MODELS.local.outline : MODELS.openai.outline;
 
+    const defaultSystemPrompt = "You are a creative story outline generator. Return your response as a JSON array of objects with 'title' and 'summary' fields.";
+    const systemPrompt = customSystemPrompt
+      ? `${customSystemPrompt}\n\nIMPORTANT: Return your response as a JSON array of objects with 'title' and 'summary' fields.`
+      : defaultSystemPrompt;
+
     const requestParams: any = {
       model: model,
       messages: [
         {
           role: "system",
-          content: "You are a creative story outline generator. Return your response as a JSON array of objects with 'title' and 'summary' fields.",
+          content: systemPrompt,
         },
         { role: "user", content: prompt },
       ],
@@ -301,7 +307,8 @@ export const generateChapterContent = async (
   outline: Chapter[],
   previousChaptersSummary: string,
   customPrompt?: string,
-  readingLevel?: ReadingLevel
+  readingLevel?: ReadingLevel,
+  customSystemPrompt?: string
 ): Promise<string> => {
   const currentChapter = outline[chapterIndex];
   const selectedCharacterIds = currentChapter.characterIds;
@@ -321,12 +328,15 @@ export const generateChapterContent = async (
     const client = AI_PROVIDER === "local" ? localClient : openaiClient;
     const model = AI_PROVIDER === "local" ? MODELS.local.chapter : MODELS.openai.chapter;
 
+    const defaultSystemPrompt = `You are a professional fiction writer specializing in ${genre} stories. Write engaging, vivid prose with strong character development and compelling narrative flow.`;
+    const systemPrompt = customSystemPrompt || defaultSystemPrompt;
+
     const response = await client.chat.completions.create({
       model: model,
       messages: [
         {
           role: "system",
-          content: `You are a professional fiction writer specializing in ${genre} stories. Write engaging, vivid prose with strong character development and compelling narrative flow.`,
+          content: systemPrompt,
         },
         { role: "user", content: prompt },
       ],
@@ -397,7 +407,8 @@ export const regenerateChapterContent = async (
   outline: Chapter[],
   previousChaptersSummary: string,
   userFeedback: string,
-  readingLevel?: ReadingLevel
+  readingLevel?: ReadingLevel,
+  customSystemPrompt?: string
 ): Promise<string> => {
   const currentChapter = outline[chapterIndex];
   const selectedCharacterIds = currentChapter.characterIds;
@@ -437,12 +448,15 @@ Generate the improved chapter content now:`;
     const client = AI_PROVIDER === "local" ? localClient : openaiClient;
     const model = AI_PROVIDER === "local" ? MODELS.local.chapter : MODELS.openai.chapter;
 
+    const defaultSystemPrompt = `You are a professional fiction writer specializing in ${genre} stories. You are revising a chapter based on user feedback. Write engaging, vivid prose with strong character development and compelling narrative flow.`;
+    const systemPrompt = customSystemPrompt || defaultSystemPrompt;
+
     const response = await client.chat.completions.create({
       model: model,
       messages: [
         {
           role: "system",
-          content: `You are a professional fiction writer specializing in ${genre} stories. You are revising a chapter based on user feedback. Write engaging, vivid prose with strong character development and compelling narrative flow.`,
+          content: systemPrompt,
         },
         { role: "user", content: regenerationPrompt },
       ],
@@ -473,7 +487,8 @@ export const generateNextChapterOutcomes = async (
   genre: string,
   characters: Character[],
   completedChapters: Chapter[],
-  readingLevel?: ReadingLevel
+  readingLevel?: ReadingLevel,
+  customSystemPrompt?: string
 ): Promise<ChapterOutcome[]> => {
   const charactersPrompt = characters
     .map((c) => `${c.name}: ${c.attributes}`)
@@ -519,12 +534,17 @@ export const generateNextChapterOutcomes = async (
     const client = AI_PROVIDER === "local" ? localClient : openaiClient;
     const model = AI_PROVIDER === "local" ? MODELS.local.outline : MODELS.openai.outline;
 
+    const defaultSystemPrompt = "You are a creative story planner. Return your response as a JSON array of objects with 'title', 'summary', and 'description' fields.";
+    const systemPrompt = customSystemPrompt
+      ? `${customSystemPrompt}\n\nIMPORTANT: Return your response as a JSON array of objects with 'title', 'summary', and 'description' fields.`
+      : defaultSystemPrompt;
+
     const requestParams: any = {
       model: model,
       messages: [
         {
           role: "system",
-          content: "You are a creative story planner. Return your response as a JSON array of objects with 'title', 'summary', and 'description' fields.",
+          content: systemPrompt,
         },
         { role: "user", content: prompt },
       ],

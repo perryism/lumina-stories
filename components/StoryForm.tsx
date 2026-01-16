@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Character, ReadingLevel } from '../types';
 
 interface StoryFormProps {
-  onStart: (data: { title: string; genre: string; numChapters: number; readingLevel: ReadingLevel; characters: Character[]; initialIdea: string }) => void;
+  onStart: (data: { title: string; genre: string; numChapters: number; readingLevel: ReadingLevel; characters: Character[]; initialIdea: string; systemPrompt?: string }) => void;
   isLoading: boolean;
 }
 
@@ -13,6 +13,8 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading }) => {
   const [numChapters, setNumChapters] = useState(5);
   const [readingLevel, setReadingLevel] = useState<ReadingLevel>('young-adult');
   const [initialIdea, setInitialIdea] = useState('');
+  const [systemPrompt, setSystemPrompt] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [characters, setCharacters] = useState<Character[]>([
     { id: '1', name: '', attributes: '' }
   ]);
@@ -32,7 +34,15 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !initialIdea) return;
-    onStart({ title, genre, numChapters, readingLevel, characters: characters.filter(c => c.name.trim()), initialIdea });
+    onStart({
+      title,
+      genre,
+      numChapters,
+      readingLevel,
+      characters: characters.filter(c => c.name.trim()),
+      initialIdea,
+      systemPrompt: systemPrompt.trim() || undefined
+    });
   };
 
   const genres = ['Fantasy', 'Sci-Fi', 'Mystery', 'Romance', 'Horror', 'Thriller', 'Historical', 'Adventure'];
@@ -137,6 +147,44 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading }) => {
             value={initialIdea}
             onChange={(e) => setInitialIdea(e.target.value)}
           />
+        </div>
+
+        {/* Advanced Settings - System Prompt */}
+        <div className="border-t border-slate-200 pt-6">
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-indigo-600 transition-colors mb-3"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`}
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+            </svg>
+            Advanced Settings
+          </button>
+
+          {showAdvanced && (
+            <div className="space-y-2 pl-6">
+              <label className="text-sm font-semibold text-slate-700">
+                Custom System Prompt
+                <span className="text-xs font-normal text-slate-500 ml-2">(Optional)</span>
+              </label>
+              <textarea
+                rows={4}
+                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+                placeholder="You are a creative story writer specializing in epic fantasy tales with rich world-building and complex characters..."
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+              />
+              <p className="text-xs text-slate-500">
+                Customize how the AI approaches writing your story. Leave blank to use the default prompt based on your genre and reading level.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">

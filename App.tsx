@@ -28,11 +28,11 @@ const App: React.FC = () => {
   const [isContinuousMode, setIsContinuousMode] = useState(false);
   const [initialChapterCount, setInitialChapterCount] = useState(0);
 
-  const handleStartStory = async (data: { title: string; genre: string; numChapters: number; readingLevel: ReadingLevel; characters: Character[]; initialIdea: string }) => {
+  const handleStartStory = async (data: { title: string; genre: string; numChapters: number; readingLevel: ReadingLevel; characters: Character[]; initialIdea: string; systemPrompt?: string }) => {
     setIsLoading(true);
     setError(null);
     try {
-      const outline = await generateOutline(data.title, data.genre, data.numChapters, data.characters, data.initialIdea, data.readingLevel);
+      const outline = await generateOutline(data.title, data.genre, data.numChapters, data.characters, data.initialIdea, data.readingLevel, data.systemPrompt);
       setState(prev => ({
         ...prev,
         ...data,
@@ -125,7 +125,8 @@ const App: React.FC = () => {
         updatedOutline,
         previousSummary,
         customPrompt || undefined,
-        state.readingLevel
+        state.readingLevel,
+        state.systemPrompt
       );
 
       // Update with completed content
@@ -141,7 +142,8 @@ const App: React.FC = () => {
             state.genre,
             state.characters,
             completedChaptersForOutcomes,
-            state.readingLevel
+            state.readingLevel,
+            state.systemPrompt
           );
           setChapterOutcomes(outcomes);
         } catch (err: any) {
@@ -221,7 +223,8 @@ const App: React.FC = () => {
         updatedOutline,
         previousSummary,
         feedback,
-        state.readingLevel
+        state.readingLevel,
+        state.systemPrompt
       );
 
       // Update with regenerated content
@@ -271,7 +274,8 @@ const App: React.FC = () => {
             updatedOutline,
             previousSummary,
             undefined,
-            state.readingLevel
+            state.readingLevel,
+            state.systemPrompt
           );
 
           updatedOutline[i] = { ...updatedOutline[i], content, status: 'completed' };
@@ -340,8 +344,10 @@ const App: React.FC = () => {
           chapters={state.outline}
           characters={state.characters}
           currentPrompt={currentPrompt}
+          systemPrompt={state.systemPrompt}
           onUpdateChapter={handleUpdateChapter}
           onUpdatePrompt={setCurrentPrompt}
+          onUpdateSystemPrompt={(prompt) => setState(prev => ({ ...prev, systemPrompt: prompt }))}
           onGenerateNext={handleGenerateNextChapter}
           onRegenerateChapter={handleRegenerateChapter}
           onViewStory={handleViewStory}

@@ -30,6 +30,7 @@ export interface StoryState {
   characters: Character[];
   outline: Chapter[];
   currentStep: 'setup' | 'outline' | 'manual-generation' | 'generating' | 'reader';
+  systemPrompt?: string;
 }
 
 export enum GenerationStatus {

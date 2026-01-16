@@ -7,8 +7,10 @@ interface ManualChapterGeneratorProps {
   chapters: Chapter[];
   characters: Character[];
   currentPrompt: string;
+  systemPrompt?: string;
   onUpdateChapter: (index: number, field: keyof Chapter, value: any) => void;
   onUpdatePrompt: (prompt: string) => void;
+  onUpdateSystemPrompt?: (prompt: string) => void;
   onGenerateNext: (customPrompt: string) => void;
   onRegenerateChapter?: (chapterIndex: number, feedback: string) => void;
   onViewStory: () => void;
@@ -23,8 +25,10 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   chapters,
   characters,
   currentPrompt,
+  systemPrompt = '',
   onUpdateChapter,
   onUpdatePrompt,
+  onUpdateSystemPrompt,
   onGenerateNext,
   onRegenerateChapter,
   onViewStory,
@@ -345,6 +349,27 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                   </div>
                 )}
 
+                {/* System Prompt Editor */}
+                {onUpdateSystemPrompt && (
+                  <div className="space-y-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <label className="text-xs font-semibold text-amber-900 uppercase tracking-wide flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                      </svg>
+                      System Prompt
+                    </label>
+                    <textarea
+                      value={systemPrompt}
+                      onChange={(e) => onUpdateSystemPrompt(e.target.value)}
+                      className="w-full text-sm text-slate-700 bg-white border border-amber-300 rounded-lg p-3 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all resize-y min-h-[100px]"
+                      placeholder="You are a professional fiction writer specializing in epic fantasy tales..."
+                    />
+                    <p className="text-xs text-amber-700">
+                      Define the AI's role and writing style. Leave blank to use the default based on your genre.
+                    </p>
+                  </div>
+                )}
+
                 {/* Prompt Editor Toggle */}
                 <button
                   onClick={() => setShowPromptEditor(!showPromptEditor)}
@@ -371,7 +396,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                       placeholder="Enter custom generation prompt..."
                     />
                     <p className="text-xs text-slate-500">
-                      Customize how the AI generates this chapter. Leave blank to use default prompt.
+                      Customize the specific instructions for this chapter. Leave blank to use default prompt.
                     </p>
                   </div>
                 )}
