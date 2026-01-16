@@ -10,6 +10,7 @@ interface StoryViewerProps {
   onRegenerateChapter?: (chapterIndex: number, feedback: string) => void;
   isRegenerating?: boolean;
   onSave?: () => void;
+  onBack?: () => void;
 }
 
 export const StoryViewer: React.FC<StoryViewerProps> = ({
@@ -18,21 +19,29 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   genre,
   onRegenerateChapter,
   isRegenerating = false,
-  onSave
+  onSave,
+  onBack
 }) => {
+  // Filter to only show completed chapters
+  const completedChapters = chapters.filter(ch => ch.status === 'completed' && ch.content);
   const [activeChapterIndex, setActiveChapterIndex] = useState(0);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
   const [feedback, setFeedback] = useState('');
 
-  const activeChapter = chapters[activeChapterIndex];
+  const activeChapter = completedChapters[activeChapterIndex];
 
   const handleExport = () => {
-    exportStoryToText(title, chapters, genre);
+    // Export only completed chapters
+    exportStoryToText(title, completedChapters, genre);
   };
 
   const handleSubmitFeedback = () => {
-    if (feedback.trim() && onRegenerateChapter) {
-      onRegenerateChapter(activeChapterIndex, feedback);
+    if (feedback.trim() && onRegenerateChapter && activeChapter) {
+      // Find the original chapter index in the full chapters array
+      const originalIndex = chapters.findIndex(ch => ch.id === activeChapter.id);
+      if (originalIndex !== -1) {
+        onRegenerateChapter(originalIndex, feedback);
+      }
       setFeedback('');
       setShowFeedbackForm(false);
     }
@@ -44,12 +53,45 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     setFeedback('');
   };
 
+  // If no completed chapters, show a message
+  if (completedChapters.length === 0) {
+    return (
+      <div className="max-w-5xl mx-auto pb-12">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-12 text-center">
+          <div className="text-6xl mb-4">📖</div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">No Chapters Available Yet</h2>
+          <p className="text-slate-600 mb-6">
+            Generate some chapters first, then come back to read your story!
+          </p>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-all"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+              </svg>
+              Back to Editing
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 pb-12">
       {/* Sidebar Navigation */}
       <aside className="w-full md:w-64 space-y-2">
-        <h3 className="px-4 text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Contents</h3>
-        {chapters.map((chapter, index) => (
+        <div className="px-4 mb-4">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Contents</h3>
+          {completedChapters.length < chapters.length && (
+            <p className="text-xs text-slate-500 italic">
+              Showing {completedChapters.length} of {chapters.length} chapters
+            </p>
+          )}
+        </div>
+        {completedChapters.map((chapter, index) => (
           <button
             key={chapter.id}
             onClick={() => handleChapterChange(index)}
@@ -60,7 +102,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
             }`}
           >
             <span className={`text-xs w-6 h-6 rounded-full flex items-center justify-center ${activeChapterIndex === index ? 'bg-indigo-500' : 'bg-slate-200 text-slate-500'}`}>
-              {index + 1}
+              {chapters.findIndex(ch => ch.id === chapter.id) + 1}
             </span>
             <span className="truncate">{chapter.title}</span>
           </button>
@@ -68,6 +110,17 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
 
         {/* Action Buttons */}
         <div className="pt-4 mt-4 border-t border-slate-200 space-y-2">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="w-full px-4 py-3 rounded-xl bg-slate-600 hover:bg-slate-700 text-white font-semibold transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+              </svg>
+              Back to Editing
+            </button>
+          )}
           {onSave && (
             <button
               onClick={onSave}
@@ -97,14 +150,14 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
           <header className="mb-12 border-b border-slate-100 pb-8">
             <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">{title}</h1>
             <div className="flex items-center gap-4 text-slate-400 text-sm italic">
-              <span>Chapter {activeChapterIndex + 1}</span>
+              <span>Chapter {chapters.findIndex(ch => ch.id === activeChapter.id) + 1}</span>
               <span className="w-1.5 h-1.5 bg-slate-200 rounded-full"></span>
               <span>{activeChapter.title}</span>
             </div>
           </header>
 
           <article className="prose prose-slate prose-lg max-w-none">
-            {activeChapter.content.split('\n').map((para, i) => (
+            {activeChapter.content && activeChapter.content.split('\n').map((para, i) => (
               para.trim() ? (
                 <p key={i} className="mb-6 leading-relaxed text-slate-800 text-lg md:text-xl">
                   {para}
@@ -192,7 +245,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
               Previous
             </button>
             <button
-              disabled={activeChapterIndex === chapters.length - 1}
+              disabled={activeChapterIndex === completedChapters.length - 1}
               onClick={() => handleChapterChange(activeChapterIndex + 1)}
               className="text-indigo-600 font-bold disabled:opacity-30 flex items-center gap-2"
             >

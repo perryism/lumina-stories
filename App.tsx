@@ -213,6 +213,10 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, currentStep: 'reader' }));
   };
 
+  const handleBackFromReader = () => {
+    setState(prev => ({ ...prev, currentStep: 'manual-generation' }));
+  };
+
   const handleSelectOutcome = (outcome: ChapterOutcome) => {
     // Add a new chapter based on the selected outcome
     const newChapterId = state.outline.length + 1;
@@ -578,6 +582,7 @@ const App: React.FC = () => {
           onRegenerateChapter={handleRegenerateChapter}
           isRegenerating={isLoading}
           onSave={handleSaveStory}
+          onBack={handleBackFromReader}
         />
       )}
     </Layout>

@@ -339,9 +339,9 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
               </div>
             </div>
 
-            {/* Save Progress Button - Always visible */}
-            {onSave && (
-              <div className="pt-4 border-t border-slate-100">
+            {/* Save Progress and View Story Buttons */}
+            <div className="pt-4 border-t border-slate-100 space-y-2">
+              {onSave && (
                 <button
                   onClick={onSave}
                   className="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-green-700 transition-all flex items-center justify-center gap-2"
@@ -351,8 +351,22 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                   </svg>
                   Save Progress
                 </button>
-              </div>
-            )}
+              )}
+
+              {/* View Story Button - Show if at least one chapter is completed */}
+              {chapters.some(ch => ch.status === 'completed') && (
+                <button
+                  onClick={onViewStory}
+                  className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                    <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                  </svg>
+                  {allCompleted ? 'View Complete Story' : 'See it in Reader'}
+                </button>
+              )}
+            </div>
 
             {!allCompleted && nextChapterIndex !== -1 && (
               <div className="pt-4 border-t border-slate-100 space-y-4">
@@ -459,30 +473,6 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                       Generate Chapter
                     </>
                   )}
-                </button>
-              </div>
-            )}
-
-            {allCompleted && (
-              <div className="pt-4 border-t border-slate-100 space-y-3">
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                  <div className="flex items-center gap-2 text-green-700 mb-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <span className="font-bold">Story Complete!</span>
-                  </div>
-                  <p className="text-sm text-green-600">All chapters have been generated.</p>
-                </div>
-                <button
-                  onClick={onViewStory}
-                  className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                    <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                  </svg>
-                  View Complete Story
                 </button>
               </div>
             )}
