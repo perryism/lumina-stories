@@ -6,7 +6,7 @@ import { OutlineEditor } from './components/OutlineEditor';
 import { ManualChapterGenerator } from './components/ManualChapterGenerator';
 import { StoryViewer } from './components/StoryViewer';
 import { StoryState, Chapter, Character } from './types';
-import { generateOutline, generateChapterContent, summarizePreviousChapters } from './services/aiService';
+import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt } from './services/aiService';
 
 const App: React.FC = () => {
   const [state, setState] = useState<StoryState>({
@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [currentWritingIndex, setCurrentWritingIndex] = useState(-1);
   const [error, setError] = useState<string | null>(null);
+  const [currentPrompt, setCurrentPrompt] = useState<string>('');
 
   const handleStartStory = async (data: { title: string; genre: string; numChapters: number; characters: Character[]; initialIdea: string }) => {
     setIsLoading(true);
@@ -51,6 +52,29 @@ const App: React.FC = () => {
 
   const handleManualMode = () => {
     setState(prev => ({ ...prev, currentStep: 'manual-generation' }));
+    // Initialize prompt for the first chapter
+    updatePromptForNextChapter();
+  };
+
+  const updatePromptForNextChapter = () => {
+    const nextIndex = state.outline.findIndex(ch => ch.status === 'pending');
+    if (nextIndex === -1) return;
+
+    const completedChapters = state.outline.slice(0, nextIndex).filter(c => c.status === 'completed');
+    const previousSummary = completedChapters.length > 0
+      ? "Previous chapters summary will be generated..."
+      : "";
+
+    const defaultPrompt = buildChapterPrompt(
+      state.title,
+      state.genre,
+      state.characters,
+      nextIndex,
+      state.outline,
+      previousSummary
+    );
+
+    setCurrentPrompt(defaultPrompt);
   };
 
   const handleUpdateChapter = (index: number, field: keyof Chapter, value: string) => {
@@ -59,7 +83,7 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, outline: updatedOutline }));
   };
 
-  const handleGenerateNextChapter = async () => {
+  const handleGenerateNextChapter = async (customPrompt: string) => {
     const nextIndex = state.outline.findIndex(ch => ch.status === 'pending');
     if (nextIndex === -1) return;
 
@@ -79,19 +103,25 @@ const App: React.FC = () => {
         ? await summarizePreviousChapters(completedChapters)
         : "";
 
-      // Generate content
+      // Generate content with custom prompt if provided
       const content = await generateChapterContent(
         state.title,
         state.genre,
         state.characters,
         nextIndex,
         updatedOutline,
-        previousSummary
+        previousSummary,
+        customPrompt || undefined
       );
 
       // Update with completed content
       updatedOutline[nextIndex] = { ...updatedOutline[nextIndex], content, status: 'completed' };
       setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+
+      // Update prompt for next chapter
+      setTimeout(() => {
+        updatePromptForNextChapter();
+      }, 100);
     } catch (err: any) {
       console.error("Chapter generation failed", err);
       const updatedOutline = [...state.outline];
@@ -106,6 +136,14 @@ const App: React.FC = () => {
   const handleViewStory = () => {
     setState(prev => ({ ...prev, currentStep: 'reader' }));
   };
+
+  // Update prompt when chapter outline changes in manual mode
+  useEffect(() => {
+    if (state.currentStep === 'manual-generation') {
+      updatePromptForNextChapter();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.outline, state.currentStep]);
 
   // Automated writing effect
   useEffect(() => {
@@ -197,7 +235,9 @@ const App: React.FC = () => {
         <ManualChapterGenerator
           title={state.title}
           chapters={state.outline}
+          currentPrompt={currentPrompt}
           onUpdateChapter={handleUpdateChapter}
+          onUpdatePrompt={setCurrentPrompt}
           onGenerateNext={handleGenerateNextChapter}
           onViewStory={handleViewStory}
           isGenerating={isLoading}

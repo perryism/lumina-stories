@@ -199,38 +199,56 @@ export const generateOutline = async (
   }
 };
 
-export const generateChapterContent = async (
+// Helper function to build the default chapter generation prompt
+export const buildChapterPrompt = (
   storyTitle: string,
   genre: string,
   characters: Character[],
   chapterIndex: number,
   outline: Chapter[],
   previousChaptersSummary: string
-): Promise<string> => {
+): string => {
   const currentChapter = outline[chapterIndex];
   const charactersPrompt = characters
     .map((c) => `${c.name}: ${c.attributes}`)
     .join("\n");
 
-  const prompt = `
-    Write Chapter ${chapterIndex + 1} of the ${genre} story titled "${storyTitle}".
+  return `Write Chapter ${chapterIndex + 1} of the ${genre} story titled "${storyTitle}".
 
-    Chapter Title: ${currentChapter.title}
-    Chapter Summary: ${currentChapter.summary}
+Chapter Title: ${currentChapter.title}
+Chapter Summary: ${currentChapter.summary}
 
-    Overall Story Context:
-    - Previous developments: ${previousChaptersSummary || "This is the first chapter."}
+Overall Story Context:
+- Previous developments: ${previousChaptersSummary || "This is the first chapter."}
 
-    Characters:
-    ${charactersPrompt}
+Characters:
+${charactersPrompt}
 
-    Instructions:
-    - Write in a professional, engaging literary style suited for the ${genre} genre.
-    - Focus on showing rather than telling.
-    - Include dialogue where appropriate.
-    - The chapter should be approximately 600-1000 words.
-    - Ensure continuity with the provided characters and plot.
-  `;
+Instructions:
+- Write in a professional, engaging literary style suited for the ${genre} genre.
+- Focus on showing rather than telling.
+- Include dialogue where appropriate.
+- The chapter should be approximately 600-1000 words.
+- Ensure continuity with the provided characters and plot.`;
+};
+
+export const generateChapterContent = async (
+  storyTitle: string,
+  genre: string,
+  characters: Character[],
+  chapterIndex: number,
+  outline: Chapter[],
+  previousChaptersSummary: string,
+  customPrompt?: string
+): Promise<string> => {
+  const prompt = customPrompt || buildChapterPrompt(
+    storyTitle,
+    genre,
+    characters,
+    chapterIndex,
+    outline,
+    previousChaptersSummary
+  );
 
   if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
     const client = AI_PROVIDER === "local" ? localClient : openaiClient;

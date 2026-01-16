@@ -5,8 +5,10 @@ import { Chapter } from '../types';
 interface ManualChapterGeneratorProps {
   title: string;
   chapters: Chapter[];
+  currentPrompt: string;
   onUpdateChapter: (index: number, field: keyof Chapter, value: string) => void;
-  onGenerateNext: () => void;
+  onUpdatePrompt: (prompt: string) => void;
+  onGenerateNext: (customPrompt: string) => void;
   onViewStory: () => void;
   isGenerating: boolean;
 }
@@ -14,12 +16,15 @@ interface ManualChapterGeneratorProps {
 export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   title,
   chapters,
+  currentPrompt,
   onUpdateChapter,
+  onUpdatePrompt,
   onGenerateNext,
   onViewStory,
   isGenerating,
 }) => {
   const [expandedChapter, setExpandedChapter] = useState<number | null>(null);
+  const [showPromptEditor, setShowPromptEditor] = useState(false);
 
   const nextChapterIndex = chapters.findIndex(ch => ch.status === 'pending');
   const allCompleted = chapters.every(ch => ch.status === 'completed');
@@ -81,7 +86,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                         disabled={isCompleted || isGenerating}
                         placeholder="Chapter Title"
                       />
-                      
+
                       <div className="mt-3">
                         <textarea
                           className={`w-full text-slate-600 bg-transparent outline-none leading-relaxed resize-y min-h-[80px] ${
@@ -154,12 +159,45 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
             </div>
 
             {!allCompleted && nextChapterIndex !== -1 && (
-              <div className="pt-4 border-t border-slate-100">
-                <p className="text-sm text-slate-600 mb-4">
+              <div className="pt-4 border-t border-slate-100 space-y-4">
+                <p className="text-sm text-slate-600">
                   Ready to generate <span className="font-bold text-slate-900">Chapter {nextChapterIndex + 1}</span>
                 </p>
+
+                {/* Prompt Editor Toggle */}
                 <button
-                  onClick={onGenerateNext}
+                  onClick={() => setShowPromptEditor(!showPromptEditor)}
+                  className="w-full text-left px-3 py-2 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors flex items-center justify-between text-sm"
+                >
+                  <span className="font-medium text-slate-700">
+                    {showPromptEditor ? 'Hide' : 'Edit'} Generation Prompt
+                  </span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 text-slate-500 transition-transform ${showPromptEditor ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+
+                {/* Prompt Editor */}
+                {showPromptEditor && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">
+                      Generation Prompt
+                    </label>
+                    <textarea
+                      value={currentPrompt}
+                      onChange={(e) => onUpdatePrompt(e.target.value)}
+                      className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-lg p-3 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all resize-y min-h-[200px] font-mono"
+                      placeholder="Enter custom generation prompt..."
+                    />
+                    <p className="text-xs text-slate-500">
+                      Customize how the AI generates this chapter. Leave blank to use default prompt.
+                    </p>
+                  </div>
+                )}
+
+                {/* Generate Button */}
+                <button
+                  onClick={() => onGenerateNext(currentPrompt)}
                   disabled={isGenerating}
                   className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
                 >
