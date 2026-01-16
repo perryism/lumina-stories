@@ -7,9 +7,10 @@ interface OutlineEditorProps {
   onUpdate: (updated: Chapter[]) => void;
   onConfirm: () => void;
   onManualMode: () => void;
+  onSave?: () => void;
 }
 
-export const OutlineEditor: React.FC<OutlineEditorProps> = ({ chapters, onUpdate, onConfirm, onManualMode }) => {
+export const OutlineEditor: React.FC<OutlineEditorProps> = ({ chapters, onUpdate, onConfirm, onManualMode, onSave }) => {
   const handleChange = (index: number, field: keyof Chapter, value: string) => {
     const next = [...chapters];
     next[index] = { ...next[index], [field]: value };
@@ -24,6 +25,17 @@ export const OutlineEditor: React.FC<OutlineEditorProps> = ({ chapters, onUpdate
           <p className="text-slate-500">Fine-tune the narrative beats before generating full prose.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
+          {onSave && (
+            <button
+              onClick={onSave}
+              className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h5a2 2 0 012 2v7a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2h5v5.586l-1.293-1.293zM9 4a1 1 0 012 0v2H9V4z" />
+              </svg>
+              Save Progress
+            </button>
+          )}
           <button
             onClick={onManualMode}
             className="bg-slate-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-700 transition-all flex items-center justify-center gap-2"

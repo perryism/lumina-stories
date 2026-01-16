@@ -7,8 +7,10 @@ import { ManualChapterGenerator } from './components/ManualChapterGenerator';
 import { StoryViewer } from './components/StoryViewer';
 import { TemplateBrowser } from './components/TemplateBrowser';
 import { ForeshadowingManager } from './components/ForeshadowingManager';
+import { Library } from './components/Library';
 import { StoryState, Chapter, Character, ReadingLevel, ChapterOutcome, StoryTemplate, ForeshadowingNote } from './types';
 import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt, regenerateChapterContent, generateNextChapterOutcomes } from './services/aiService';
+import { saveStory, loadStory } from './services/libraryService';
 
 const App: React.FC = () => {
   const [state, setState] = useState<StoryState>({
@@ -32,6 +34,8 @@ const App: React.FC = () => {
   const [initialChapterCount, setInitialChapterCount] = useState(0);
   const [showTemplateBrowser, setShowTemplateBrowser] = useState(false);
   const [templateToLoad, setTemplateToLoad] = useState<StoryTemplate | null>(null);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [currentStoryId, setCurrentStoryId] = useState<string | null>(null);
 
   const handleStartStory = async (data: { title: string; genre: string; numChapters: number; readingLevel: ReadingLevel; characters: Character[]; initialIdea: string; systemPrompt?: string }) => {
     setIsLoading(true);
@@ -370,10 +374,55 @@ const App: React.FC = () => {
     setShowTemplateBrowser(false);
   };
 
+  const handleLibraryClick = () => {
+    setShowLibrary(true);
+  };
+
+  const handleLoadStory = (storyId: string) => {
+    const loadedState = loadStory(storyId);
+    if (loadedState) {
+      setState(loadedState);
+      setCurrentStoryId(storyId);
+      setError(null);
+      setShowLibrary(false);
+    } else {
+      setError('Failed to load story');
+    }
+  };
+
+  const handleSaveStory = () => {
+    try {
+      const savedStory = saveStory(state);
+      setCurrentStoryId(savedStory.id);
+      alert('Story saved successfully!');
+    } catch (err: any) {
+      setError(err.message || 'Failed to save story');
+    }
+  };
+
+  // Auto-save when state changes (debounced)
+  useEffect(() => {
+    // Only auto-save if we have a title and outline
+    if (state.title && state.outline.length > 0) {
+      const timeoutId = setTimeout(() => {
+        try {
+          const savedStory = saveStory(state);
+          setCurrentStoryId(savedStory.id);
+          console.log('Story auto-saved');
+        } catch (err) {
+          console.error('Auto-save failed:', err);
+        }
+      }, 2000); // Debounce for 2 seconds
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [state]);
+
   return (
     <Layout
       onTemplatesClick={handleTemplatesClick}
       onNewStoryClick={handleNewStoryClick}
+      onLibraryClick={handleLibraryClick}
     >
       {error && (
         <div className="max-w-2xl mx-auto mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl flex items-center justify-between">
@@ -406,6 +455,13 @@ const App: React.FC = () => {
         />
       )}
 
+      {showLibrary && (
+        <Library
+          onLoadStory={handleLoadStory}
+          onClose={() => setShowLibrary(false)}
+        />
+      )}
+
       {state.currentStep === 'outline' && (
         <>
           <ForeshadowingManager
@@ -420,6 +476,7 @@ const App: React.FC = () => {
             onUpdate={handleUpdateOutline}
             onConfirm={handleConfirmOutline}
             onManualMode={handleManualMode}
+            onSave={handleSaveStory}
           />
         </>
       )}
@@ -442,6 +499,7 @@ const App: React.FC = () => {
           isContinuousMode={isContinuousMode}
           chapterOutcomes={chapterOutcomes}
           onSelectOutcome={handleSelectOutcome}
+          onSave={handleSaveStory}
         />
       )}
 
@@ -496,6 +554,19 @@ const App: React.FC = () => {
               </div>
             ))}
           </div>
+
+          {/* Save Progress Button */}
+          <div className="flex justify-center pt-6">
+            <button
+              onClick={handleSaveStory}
+              className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-all flex items-center gap-2 shadow-md hover:shadow-lg"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h5a2 2 0 012 2v7a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2h5v5.586l-1.293-1.293zM9 4a1 1 0 012 0v2H9V4z" />
+              </svg>
+              Save Progress
+            </button>
+          </div>
         </div>
       )}
 
@@ -506,6 +577,7 @@ const App: React.FC = () => {
           genre={state.genre}
           onRegenerateChapter={handleRegenerateChapter}
           isRegenerating={isLoading}
+          onSave={handleSaveStory}
         />
       )}
     </Layout>

@@ -5,9 +5,10 @@ interface LayoutProps {
   children: React.ReactNode;
   onTemplatesClick?: () => void;
   onNewStoryClick?: () => void;
+  onLibraryClick?: () => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, onTemplatesClick, onNewStoryClick }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, onTemplatesClick, onNewStoryClick, onLibraryClick }) => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
@@ -19,7 +20,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, onTemplatesClick, onNe
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">Lumina Stories</h1>
           </div>
           <nav className="hidden md:flex items-center space-x-6">
-            <span className="text-sm font-medium text-slate-500 hover:text-indigo-600 cursor-pointer">Library</span>
+            <span
+              onClick={onLibraryClick}
+              className="text-sm font-medium text-slate-500 hover:text-indigo-600 cursor-pointer transition-colors"
+            >
+              Library
+            </span>
             <span
               onClick={onTemplatesClick}
               className="text-sm font-medium text-slate-500 hover:text-indigo-600 cursor-pointer transition-colors"

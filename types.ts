@@ -60,3 +60,11 @@ export interface StoryTemplate {
   characters: Character[];
   systemPrompt?: string;
 }
+
+export interface SavedStory {
+  id: string;
+  state: StoryState;
+  savedAt: number;
+  lastModified: number;
+  progress: number; // Percentage of chapters completed (0-100)
+}

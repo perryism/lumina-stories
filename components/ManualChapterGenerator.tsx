@@ -20,6 +20,7 @@ interface ManualChapterGeneratorProps {
   isContinuousMode?: boolean;
   chapterOutcomes?: ChapterOutcome[];
   onSelectOutcome?: (outcome: ChapterOutcome) => void;
+  onSave?: () => void;
 }
 
 export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
@@ -39,6 +40,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   isContinuousMode = false,
   chapterOutcomes = [],
   onSelectOutcome,
+  onSave,
 }) => {
   const [localSystemPrompt, setLocalSystemPrompt] = useState(systemPrompt || getDefaultSystemPrompt(genre));
 
@@ -337,6 +339,21 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
               </div>
             </div>
 
+            {/* Save Progress Button - Always visible */}
+            {onSave && (
+              <div className="pt-4 border-t border-slate-100">
+                <button
+                  onClick={onSave}
+                  className="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h5a2 2 0 012 2v7a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2h5v5.586l-1.293-1.293zM9 4a1 1 0 012 0v2H9V4z" />
+                  </svg>
+                  Save Progress
+                </button>
+              </div>
+            )}
+
             {!allCompleted && nextChapterIndex !== -1 && (
               <div className="pt-4 border-t border-slate-100 space-y-4">
                 <p className="text-sm text-slate-600">
@@ -447,8 +464,8 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
             )}
 
             {allCompleted && (
-              <div className="pt-4 border-t border-slate-100">
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+              <div className="pt-4 border-t border-slate-100 space-y-3">
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
                   <div className="flex items-center gap-2 text-green-700 mb-1">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -459,7 +476,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                 </div>
                 <button
                   onClick={onViewStory}
-                  className="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                  className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
