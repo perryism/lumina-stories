@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Chapter, Character } from '../types';
+import { Chapter, Character, ChapterOutcome } from '../types';
 
 interface ManualChapterGeneratorProps {
   title: string;
@@ -13,6 +13,9 @@ interface ManualChapterGeneratorProps {
   onRegenerateChapter?: (chapterIndex: number, feedback: string) => void;
   onViewStory: () => void;
   isGenerating: boolean;
+  isContinuousMode?: boolean;
+  chapterOutcomes?: ChapterOutcome[];
+  onSelectOutcome?: (outcome: ChapterOutcome) => void;
 }
 
 export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
@@ -26,6 +29,9 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   onRegenerateChapter,
   onViewStory,
   isGenerating,
+  isContinuousMode = false,
+  chapterOutcomes = [],
+  onSelectOutcome,
 }) => {
   const [expandedChapter, setExpandedChapter] = useState<number | null>(null);
   const [showPromptEditor, setShowPromptEditor] = useState(false);
@@ -422,6 +428,59 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Chapter Outcomes Section - Only in Continuous Mode */}
+      {isContinuousMode && chapterOutcomes.length > 0 && onSelectOutcome && (
+        <div className="mt-8 max-w-5xl mx-auto">
+          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6 border border-indigo-100">
+            <div className="mb-6">
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">What happens next?</h3>
+              <p className="text-slate-600">Choose a direction for your story to continue:</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {chapterOutcomes.map((outcome, index) => (
+                <button
+                  key={index}
+                  onClick={() => onSelectOutcome(outcome)}
+                  disabled={isGenerating}
+                  className="bg-white rounded-xl p-5 border-2 border-transparent hover:border-indigo-400 hover:shadow-lg transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center font-bold text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                      {index + 1}
+                    </div>
+                    <h4 className="flex-1 font-bold text-lg text-slate-900 group-hover:text-indigo-600 transition-colors">
+                      {outcome.title}
+                    </h4>
+                  </div>
+
+                  <p className="text-sm text-slate-600 mb-3 font-medium">
+                    {outcome.summary}
+                  </p>
+
+                  <p className="text-sm text-slate-500 leading-relaxed">
+                    {outcome.description}
+                  </p>
+
+                  <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-end gap-2 text-indigo-600 font-semibold text-sm group-hover:text-indigo-700">
+                    <span>Choose this path</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 group-hover:translate-x-1 transition-transform" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 text-center">
+              <p className="text-xs text-slate-500 italic">
+                💡 Tip: Each option leads to a different narrative direction. Choose the one that excites you most!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

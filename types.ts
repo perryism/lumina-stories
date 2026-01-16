@@ -14,6 +14,12 @@ export interface Chapter {
   characterIds?: string[]; // IDs of characters participating in this chapter
 }
 
+export interface ChapterOutcome {
+  title: string;
+  summary: string;
+  description: string;
+}
+
 export type ReadingLevel = 'elementary' | 'middle-grade' | 'young-adult' | 'adult';
 
 export interface StoryState {

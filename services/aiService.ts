@@ -1,7 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import OpenAI from "openai";
-import { Character, Chapter, ReadingLevel } from "../types";
+import { Character, Chapter, ReadingLevel, ChapterOutcome } from "../types";
 
 // Configuration
 export type AIProvider = "gemini" | "openai" | "local";
@@ -464,5 +464,173 @@ Generate the improved chapter content now:`;
     });
 
     return response.text || "Failed to regenerate content.";
+  }
+};
+
+// Generate three possible outcomes for the next chapter in continuous writing mode
+export const generateNextChapterOutcomes = async (
+  storyTitle: string,
+  genre: string,
+  characters: Character[],
+  completedChapters: Chapter[],
+  readingLevel?: ReadingLevel
+): Promise<ChapterOutcome[]> => {
+  const charactersPrompt = characters
+    .map((c) => `${c.name}: ${c.attributes}`)
+    .join("\n");
+
+  const readingLevelNote = readingLevel ? {
+    'elementary': 'elementary school readers (ages 6-10)',
+    'middle-grade': 'middle grade readers (ages 8-12)',
+    'young-adult': 'young adult readers (ages 12-18)',
+    'adult': 'adult readers (ages 18+)'
+  }[readingLevel] : 'general audience';
+
+  const storyContext = completedChapters.length > 0
+    ? completedChapters.map((ch, idx) =>
+        `Chapter ${idx + 1}: ${ch.title}\n${ch.summary}\n${ch.content.substring(0, 300)}...`
+      ).join("\n\n")
+    : "This is the beginning of the story.";
+
+  const prompt = `
+    You are helping to write a ${genre} story titled "${storyTitle}" for ${readingLevelNote}.
+
+    Characters:
+    ${charactersPrompt}
+
+    Story so far:
+    ${storyContext}
+
+    Generate THREE distinct and compelling possible directions for the next chapter. Each outcome should:
+    - Offer a unique narrative direction or plot development
+    - Build naturally from what has happened so far
+    - Be engaging and appropriate for the target audience
+    - Provide meaningful story progression
+
+    For each outcome, provide:
+    1. A catchy chapter title
+    2. A brief 1-2 sentence summary
+    3. A more detailed 3-4 sentence description of what would happen
+
+    Make the three outcomes distinctly different from each other - they could explore different themes, character arcs, plot twists, or emotional tones.
+  `;
+
+  if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
+    const client = AI_PROVIDER === "local" ? localClient : openaiClient;
+    const model = AI_PROVIDER === "local" ? MODELS.local.outline : MODELS.openai.outline;
+
+    const requestParams: any = {
+      model: model,
+      messages: [
+        {
+          role: "system",
+          content: "You are a creative story planner. Return your response as a JSON array of objects with 'title', 'summary', and 'description' fields.",
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.8,
+    };
+
+    // Use structured output for OpenAI if available
+    if (AI_PROVIDER === "openai") {
+      requestParams.response_format = {
+        type: "json_schema",
+        json_schema: {
+          name: "chapter_outcomes",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              outcomes: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string" },
+                    summary: { type: "string" },
+                    description: { type: "string" },
+                  },
+                  required: ["title", "summary", "description"],
+                  additionalProperties: false,
+                },
+              },
+            },
+            required: ["outcomes"],
+            additionalProperties: false,
+          },
+        },
+      };
+    }
+
+    const response = await client.chat.completions.create(requestParams);
+
+    try {
+      let content = response.choices[0].message.content || "{}";
+      console.log(`[${AI_PROVIDER}] Raw outcomes response:`, content);
+
+      // Strip markdown code blocks if present
+      content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+
+      const parsed = JSON.parse(content);
+      console.log(`[${AI_PROVIDER}] Parsed outcomes:`, parsed);
+
+      // Extract outcomes from various possible structures
+      let outcomes = parsed.outcomes || parsed;
+
+      if (!Array.isArray(outcomes)) {
+        console.error(`[${AI_PROVIDER}] Expected array but got:`, typeof outcomes, outcomes);
+        throw new Error("Response is not in expected array format");
+      }
+
+      // Ensure we have exactly 3 outcomes
+      if (outcomes.length < 3) {
+        console.warn(`[${AI_PROVIDER}] Only got ${outcomes.length} outcomes, expected 3`);
+      }
+
+      return outcomes.slice(0, 3).map((item: any) => ({
+        title: item.title,
+        summary: item.summary,
+        description: item.description,
+      }));
+    } catch (e) {
+      console.error(`Failed to parse ${AI_PROVIDER} outcomes JSON`, e);
+      throw new Error("Failed to generate valid chapter outcomes.");
+    }
+  } else {
+    // Gemini implementation
+    const response = await geminiClient.models.generateContent({
+      model: MODELS.gemini.outline,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            outcomes: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  summary: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                },
+                required: ["title", "summary", "description"],
+              },
+            },
+          },
+          required: ["outcomes"],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text);
+    const outcomes = parsed.outcomes || [];
+
+    return outcomes.slice(0, 3).map((item: any) => ({
+      title: item.title,
+      summary: item.summary,
+      description: item.description,
+    }));
   }
 };

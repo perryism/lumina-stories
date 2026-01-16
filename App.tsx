@@ -5,8 +5,8 @@ import { StoryForm } from './components/StoryForm';
 import { OutlineEditor } from './components/OutlineEditor';
 import { ManualChapterGenerator } from './components/ManualChapterGenerator';
 import { StoryViewer } from './components/StoryViewer';
-import { StoryState, Chapter, Character, ReadingLevel } from './types';
-import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt, regenerateChapterContent } from './services/aiService';
+import { StoryState, Chapter, Character, ReadingLevel, ChapterOutcome } from './types';
+import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt, regenerateChapterContent, generateNextChapterOutcomes } from './services/aiService';
 
 const App: React.FC = () => {
   const [state, setState] = useState<StoryState>({
@@ -24,6 +24,9 @@ const App: React.FC = () => {
   const [currentWritingIndex, setCurrentWritingIndex] = useState(-1);
   const [error, setError] = useState<string | null>(null);
   const [currentPrompt, setCurrentPrompt] = useState<string>('');
+  const [chapterOutcomes, setChapterOutcomes] = useState<ChapterOutcome[]>([]);
+  const [isContinuousMode, setIsContinuousMode] = useState(false);
+  const [initialChapterCount, setInitialChapterCount] = useState(0);
 
   const handleStartStory = async (data: { title: string; genre: string; numChapters: number; readingLevel: ReadingLevel; characters: Character[]; initialIdea: string }) => {
     setIsLoading(true);
@@ -52,6 +55,10 @@ const App: React.FC = () => {
   };
 
   const handleManualMode = () => {
+    // Check if this is continuous mode (only 1 chapter initially)
+    const isContinuous = state.outline.length === 1;
+    setIsContinuousMode(isContinuous);
+    setInitialChapterCount(state.outline.length);
     setState(prev => ({ ...prev, currentStep: 'manual-generation' }));
     // Initialize prompt for the first chapter
     updatePromptForNextChapter();
@@ -125,6 +132,25 @@ const App: React.FC = () => {
       updatedOutline[nextIndex] = { ...updatedOutline[nextIndex], content, status: 'completed' };
       setState(prev => ({ ...prev, outline: [...updatedOutline] }));
 
+      // In continuous mode, generate outcomes after completing a chapter
+      if (isContinuousMode) {
+        try {
+          const completedChaptersForOutcomes = updatedOutline.filter(c => c.status === 'completed');
+          const outcomes = await generateNextChapterOutcomes(
+            state.title,
+            state.genre,
+            state.characters,
+            completedChaptersForOutcomes,
+            state.readingLevel
+          );
+          setChapterOutcomes(outcomes);
+        } catch (err: any) {
+          console.error("Failed to generate outcomes", err);
+          // Don't fail the whole operation if outcomes fail
+          setChapterOutcomes([]);
+        }
+      }
+
       // Update prompt for next chapter
       setTimeout(() => {
         updatePromptForNextChapter();
@@ -142,6 +168,31 @@ const App: React.FC = () => {
 
   const handleViewStory = () => {
     setState(prev => ({ ...prev, currentStep: 'reader' }));
+  };
+
+  const handleSelectOutcome = (outcome: ChapterOutcome) => {
+    // Add a new chapter based on the selected outcome
+    const newChapterId = state.outline.length + 1;
+    const newChapter: Chapter = {
+      id: newChapterId,
+      title: outcome.title,
+      summary: outcome.summary,
+      content: '',
+      status: 'pending',
+    };
+
+    setState(prev => ({
+      ...prev,
+      outline: [...prev.outline, newChapter],
+    }));
+
+    // Clear outcomes after selection
+    setChapterOutcomes([]);
+
+    // Update prompt for the new chapter
+    setTimeout(() => {
+      updatePromptForNextChapter();
+    }, 100);
   };
 
   const handleRegenerateChapter = async (chapterIndex: number, feedback: string) => {
@@ -295,6 +346,9 @@ const App: React.FC = () => {
           onRegenerateChapter={handleRegenerateChapter}
           onViewStory={handleViewStory}
           isGenerating={isLoading}
+          isContinuousMode={isContinuousMode}
+          chapterOutcomes={chapterOutcomes}
+          onSelectOutcome={handleSelectOutcome}
         />
       )}
 
