@@ -626,12 +626,14 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                           <input
                             type="number"
                             min="1"
-                            max={chapters.length}
                             value={foreshadowingFormData.targetChapterId}
                             onChange={(e) => setForeshadowingFormData({ ...foreshadowingFormData, targetChapterId: parseInt(e.target.value) })}
                             className="w-full text-xs px-2 py-1 border border-purple-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
                             required
                           />
+                          <p className="text-xs text-purple-600 mt-1">
+                            Can specify any chapter, even if not created yet
+                          </p>
                         </div>
                         <div>
                           <label className="text-xs font-medium text-purple-900 block mb-1">

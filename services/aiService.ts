@@ -207,7 +207,11 @@ export const generateOutline = async (
 
       console.log(`[${AI_PROVIDER}] Extracted ${chapters.length} chapters`);
 
-      return chapters.map((item: any, index: number) => ({
+      // Ensure we only return the requested number of chapters
+      const limitedChapters = chapters.slice(0, numChapters);
+      console.log(`[${AI_PROVIDER}] Limiting to ${numChapters} chapters (was ${chapters.length})`);
+
+      return limitedChapters.map((item: any, index: number) => ({
         id: index + 1,
         title: item.title,
         summary: item.summary,
@@ -241,7 +245,12 @@ export const generateOutline = async (
 
     try {
       const json = JSON.parse(response.text || "[]");
-      return json.map((item: any, index: number) => ({
+
+      // Ensure we only return the requested number of chapters
+      const limitedChapters = json.slice(0, numChapters);
+      console.log(`[gemini] Limiting to ${numChapters} chapters (was ${json.length})`);
+
+      return limitedChapters.map((item: any, index: number) => ({
         id: index + 1,
         title: item.title,
         summary: item.summary,

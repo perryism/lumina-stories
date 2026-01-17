@@ -99,18 +99,17 @@ export const ForeshadowingManager: React.FC<ForeshadowingManagerProps> = ({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Reveal in Chapter:
             </label>
-            <select
+            <input
+              type="number"
+              min="1"
               value={formData.targetChapterId}
               onChange={(e) => setFormData({ ...formData, targetChapterId: parseInt(e.target.value) })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               required
-            >
-              {Array.from({ length: numChapters }, (_, i) => i + 1).map((chapterNum) => (
-                <option key={chapterNum} value={chapterNum}>
-                  Chapter {chapterNum}
-                </option>
-              ))}
-            </select>
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              You can specify any chapter number, even if it hasn't been created yet.
+            </p>
           </div>
 
           <div className="mb-3">
