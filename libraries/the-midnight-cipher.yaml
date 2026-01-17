@@ -1,0 +1,62 @@
+# Lumina Stories - Saved Story
+# ID: story-1768616783520-nl5m16830
+# Saved: 2026-01-17T02:26:23.520Z
+# Last Modified: 2026-01-17T02:30:20.148Z
+# Progress: 0%
+
+title: "The Midnight Cipher"
+genre: "Mystery"
+readingLevel: "middle-grade"
+currentStep: "manual-generation"
+numChapters: 1
+
+plotOutline: ""
+
+systemPrompt: |
+  You are a professional fiction writer specializing in Mystery stories. Write engaging, vivid prose with strong character development and compelling narrative flow.
+
+characters:
+  - id: "1"
+    name: "Detective Sarah Monroe"
+    attributes: "Sharp-minded investigator, struggles with insomnia, has photographic memory, emotionally guarded due to childhood trauma"
+  - id: "2"
+    name: "Marcus Webb"
+    attributes: "Local journalist, charming but persistent, has his own theories about the case, may know more than he reveals"
+  - id: "3"
+    name: "Chief Robert Dalton"
+    attributes: "Veteran police chief, protective of the town's reputation, was a rookie during the original case, hiding something"
+  - id: "4"
+    name: "Dr. Elena Vasquez"
+    attributes: "Forensic psychologist, brilliant profiler, unconventional methods, becomes Sarah's confidant and sounding board"
+
+outline:
+  - id: 1
+    title: "The Whispers of Port Blossom"
+    summary: |
+      Detective Sarah Monroe arrives in the quaint coastal town of Port Blossom to investigate a disturbing series of murders, each victim found with an elaborate coded message left at the scene. She teams up with local journalist Marcus Webb, navigating a town riddled with secrets and suspicion while battling her own struggles with insomnia. The coded messages lead Sarah to an unsolved case from three decades ago, a chilling echo that threatens to unravel Port Blossom's idyllic facade and expose long-buried family secrets.
+    status: "pending"
+
+  - id: 2
+    title: "Cracked Codes, Hidden Histories"
+    summary: |
+      Sarah and Marcus delve deeper into the coded messages, discovering they are recreations of crimes from a devastating case that rocked Port Blossom thirty years prior – the disappearance of several children. Chief Dalton, a rookie officer during that original investigation, seems overly eager to dismiss the similarities and close the current case quickly. Sarah’s photographic memory proves invaluable as she recognizes patterns in the codes, linking them to a specific historical cipher manual.
+    status: "pending"
+
+  - id: 3
+    title: "Echoes of the Past"
+    summary: |
+      Dr. Elena Vasquez, a forensic psychologist with an unconventional approach, assists Sarah in profiling the killer and understanding their motives.  As Sarah pieces together the past case files, she uncovers a shocking link between her own family’s history and the original unsolved mystery. The increasingly dangerous game of cat-and-mouse reveals Chief Dalton’s involvement in suppressing evidence from the original case, protecting someone within Port Blossom.
+    status: "pending"
+
+  - id: 4
+    title: "The Cipher's Revelation"
+    summary: |
+      Sarah, with Elena’s help, finally deciphers the final message, revealing the killer's identity and their twisted motive – revenge for a perceived injustice stemming from that past case. A tense confrontation ensues, forcing Sarah to confront her family's dark history and the truth about what happened thirty years ago. Ultimately, Sarah uses her wit and insight to outsmart the killer, bringing closure to Port Blossom and confronting her own inner demons.
+    status: "pending"
+
+foreshadowingNotes:
+  - id: "foreshadow-1768617001927-0.21591640658770084"
+    targetChapterId: 2
+    revealDescription: "The main character has the key to the secret room all along. "
+    foreshadowingHint: "She has an amulet given by her grandmom. "
+    createdAt: 1768617001927

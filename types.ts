@@ -17,10 +17,11 @@ export interface Chapter {
   id: number;
   title: string;
   summary: string;
-  content: string;
+  content?: string; // Optional - only present when chapter is generated
   status: 'pending' | 'generating' | 'completed' | 'error';
   characterIds?: string[]; // IDs of characters participating in this chapter
   foreshadowingNotes?: ForeshadowingNote[]; // Notes for events that will be revealed in this chapter
+  foreshadowing?: string[]; // Array of foreshadowing hints for this chapter
 }
 
 export interface ChapterOutcome {
@@ -39,6 +40,7 @@ export interface StoryState {
   characters: Character[];
   outline: Chapter[];
   currentStep: 'setup' | 'outline' | 'manual-generation' | 'generating' | 'reader';
+  plotOutline?: string; // The initial plot outline/idea
   systemPrompt?: string;
   foreshadowingNotes?: ForeshadowingNote[]; // Global foreshadowing notes for the story
 }

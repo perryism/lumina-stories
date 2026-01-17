@@ -17,25 +17,25 @@ export const Library: React.FC<LibraryProps> = ({ onLoadStory, onClose }) => {
     loadStories();
   }, []);
 
-  const loadStories = () => {
-    const allStories = getAllSavedStories();
+  const loadStories = async () => {
+    const allStories = await getAllSavedStories();
     setStories(allStories);
   };
 
-  const handleDelete = (storyId: string, storyTitle: string) => {
+  const handleDelete = async (storyId: string, storyTitle: string) => {
     if (window.confirm(`Are you sure you want to delete "${storyTitle}"? This cannot be undone.`)) {
       try {
-        deleteStory(storyId);
-        loadStories();
+        await deleteStory(storyId);
+        await loadStories();
       } catch (error: any) {
         alert(error.message || 'Failed to delete story');
       }
     }
   };
 
-  const handleExport = (storyId: string) => {
+  const handleExport = async (storyId: string) => {
     try {
-      exportStory(storyId);
+      await exportStory(storyId);
     } catch (error: any) {
       alert(error.message || 'Failed to export story');
     }
@@ -48,7 +48,7 @@ export const Library: React.FC<LibraryProps> = ({ onLoadStory, onClose }) => {
     setIsImporting(true);
     try {
       await importStory(file);
-      loadStories();
+      await loadStories();
       alert('Story imported successfully!');
     } catch (error: any) {
       alert(error.message || 'Failed to import story');

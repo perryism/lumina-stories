@@ -382,8 +382,8 @@ const App: React.FC = () => {
     setShowLibrary(true);
   };
 
-  const handleLoadStory = (storyId: string) => {
-    const loadedState = loadStory(storyId);
+  const handleLoadStory = async (storyId: string) => {
+    const loadedState = await loadStory(storyId);
     if (loadedState) {
       setState(loadedState);
       setCurrentStoryId(storyId);
@@ -394,9 +394,9 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSaveStory = () => {
+  const handleSaveStory = async () => {
     try {
-      const savedStory = saveStory(state);
+      const savedStory = await saveStory(state);
       setCurrentStoryId(savedStory.id);
       alert('Story saved successfully!');
     } catch (err: any) {
@@ -408,9 +408,9 @@ const App: React.FC = () => {
   useEffect(() => {
     // Only auto-save if we have a title and outline
     if (state.title && state.outline.length > 0) {
-      const timeoutId = setTimeout(() => {
+      const timeoutId = setTimeout(async () => {
         try {
-          const savedStory = saveStory(state);
+          const savedStory = await saveStory(state);
           setCurrentStoryId(savedStory.id);
           console.log('Story auto-saved');
         } catch (err) {
