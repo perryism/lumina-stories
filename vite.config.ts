@@ -20,7 +20,8 @@ export default defineConfig(({ mode }) => {
         'process.env.LOCAL_MODEL': JSON.stringify(env.LOCAL_MODEL || 'local-model'),
         'process.env.LOCAL_MODEL_OUTLINE': JSON.stringify(env.LOCAL_MODEL_OUTLINE),
         'process.env.LOCAL_MODEL_CHAPTER': JSON.stringify(env.LOCAL_MODEL_CHAPTER),
-        'process.env.LOCAL_MODEL_SUMMARY': JSON.stringify(env.LOCAL_MODEL_SUMMARY)
+        'process.env.LOCAL_MODEL_SUMMARY': JSON.stringify(env.LOCAL_MODEL_SUMMARY),
+        'process.env.API_SERVER_URL': JSON.stringify(env.API_SERVER_URL || 'http://localhost:3001')
       },
       resolve: {
         alias: {

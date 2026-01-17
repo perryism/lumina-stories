@@ -43,6 +43,7 @@ services:
       - LOCAL_MODEL_OUTLINE=${LOCAL_MODEL_OUTLINE}
       - LOCAL_MODEL_CHAPTER=${LOCAL_MODEL_CHAPTER}
       - LOCAL_MODEL_SUMMARY=${LOCAL_MODEL_SUMMARY}
+      - API_SERVER_URL=http://api:3001
     depends_on:
       - api
     restart: unless-stopped

@@ -1,6 +1,7 @@
 import { SavedStory, StoryState } from '../types';
 
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_SERVER_URL = process.env.API_SERVER_URL || 'http://localhost:3001';
+const API_BASE_URL = `${API_SERVER_URL}/api`;
 
 /**
  * Convert a SavedStory to YAML format

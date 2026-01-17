@@ -20,7 +20,8 @@ export const saveTemplateToTemplatesFolder = async (template: StoryTemplate): Pr
 
   try {
     // Try to save via API first
-    const response = await fetch('http://localhost:3001/api/save-template', {
+    const API_SERVER_URL = process.env.API_SERVER_URL || 'http://localhost:3001';
+    const response = await fetch(`${API_SERVER_URL}/api/save-template`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
