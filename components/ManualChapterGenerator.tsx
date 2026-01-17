@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Chapter, Character, ChapterOutcome } from '../types';
+import { Chapter, Character, ChapterOutcome, ForeshadowingNote } from '../types';
 import { getDefaultSystemPrompt } from '../services/aiService';
 
 interface ManualChapterGeneratorProps {
@@ -21,6 +21,10 @@ interface ManualChapterGeneratorProps {
   chapterOutcomes?: ChapterOutcome[];
   onSelectOutcome?: (outcome: ChapterOutcome) => void;
   onSave?: () => void;
+  foreshadowingNotes?: ForeshadowingNote[];
+  onAddForeshadowingNote?: (note: Omit<ForeshadowingNote, 'id' | 'createdAt'>) => void;
+  onUpdateForeshadowingNote?: (noteId: string, note: Omit<ForeshadowingNote, 'id' | 'createdAt'>) => void;
+  onDeleteForeshadowingNote?: (noteId: string) => void;
 }
 
 export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
@@ -41,8 +45,19 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   chapterOutcomes = [],
   onSelectOutcome,
   onSave,
+  foreshadowingNotes = [],
+  onAddForeshadowingNote,
+  onUpdateForeshadowingNote,
+  onDeleteForeshadowingNote,
 }) => {
   const [localSystemPrompt, setLocalSystemPrompt] = useState(systemPrompt || getDefaultSystemPrompt(genre));
+  const [showForeshadowingForm, setShowForeshadowingForm] = useState(false);
+  const [editingForeshadowingId, setEditingForeshadowingId] = useState<string | null>(null);
+  const [foreshadowingFormData, setForeshadowingFormData] = useState({
+    targetChapterId: 1,
+    revealDescription: '',
+    foreshadowingHint: '',
+  });
 
   // Update local system prompt when prop changes or when it's empty
   useEffect(() => {
@@ -81,6 +96,79 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
       : [...currentIds, characterId];
     onUpdateChapter(chapterIndex, 'characterIds', newIds);
   };
+
+  // Foreshadowing form handlers
+  const handleAddForeshadowing = () => {
+    setForeshadowingFormData({
+      targetChapterId: nextChapterIndex + 1,
+      revealDescription: '',
+      foreshadowingHint: '',
+    });
+    setEditingForeshadowingId(null);
+    setShowForeshadowingForm(true);
+  };
+
+  const handleEditForeshadowing = (note: ForeshadowingNote) => {
+    setForeshadowingFormData({
+      targetChapterId: note.targetChapterId,
+      revealDescription: note.revealDescription,
+      foreshadowingHint: note.foreshadowingHint,
+    });
+    setEditingForeshadowingId(note.id);
+    setShowForeshadowingForm(true);
+  };
+
+  const handleSubmitForeshadowing = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onAddForeshadowingNote || !onUpdateForeshadowingNote) return;
+
+    if (editingForeshadowingId) {
+      onUpdateForeshadowingNote(editingForeshadowingId, foreshadowingFormData);
+    } else {
+      onAddForeshadowingNote(foreshadowingFormData);
+    }
+
+    setShowForeshadowingForm(false);
+    setEditingForeshadowingId(null);
+    setForeshadowingFormData({
+      targetChapterId: nextChapterIndex + 1,
+      revealDescription: '',
+      foreshadowingHint: '',
+    });
+  };
+
+  const handleCancelForeshadowing = () => {
+    setShowForeshadowingForm(false);
+    setEditingForeshadowingId(null);
+    setForeshadowingFormData({
+      targetChapterId: nextChapterIndex + 1,
+      revealDescription: '',
+      foreshadowingHint: '',
+    });
+  };
+
+  // Get foreshadowing notes relevant to the next chapter
+  const getRelevantForeshadowingNotes = () => {
+    if (nextChapterIndex === -1 || !foreshadowingNotes || foreshadowingNotes.length === 0) {
+      return { hints: [], reveals: [] };
+    }
+
+    const nextChapterNumber = nextChapterIndex + 1;
+
+    // Notes that should be hinted at in the next chapter (target chapter is later)
+    const hints = foreshadowingNotes.filter(
+      note => note.targetChapterId > nextChapterNumber
+    );
+
+    // Notes that should be revealed in the next chapter
+    const reveals = foreshadowingNotes.filter(
+      note => note.targetChapterId === nextChapterNumber
+    );
+
+    return { hints, reveals };
+  };
+
+  const { hints, reveals } = getRelevantForeshadowingNotes();
 
   return (
     <div className="max-w-5xl mx-auto pb-12">
@@ -417,6 +505,182 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                     <p className="text-xs text-amber-700">
                       Define the AI's role and writing style. Edit the text above to customize.
                     </p>
+                  </div>
+                )}
+
+                {/* Foreshadowing Notes */}
+                {onAddForeshadowingNote && (
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                    <div className="text-xs font-medium text-purple-800 uppercase tracking-wide mb-2 flex items-center justify-between">
+                      <div className="flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                          <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                        </svg>
+                        Foreshadowing for Chapter {nextChapterIndex + 1}
+                      </div>
+                      {!showForeshadowingForm && (
+                        <button
+                          onClick={handleAddForeshadowing}
+                          className="text-xs px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                        >
+                          + Add
+                        </button>
+                      )}
+                    </div>
+
+                    {showForeshadowingForm && (
+                      <form onSubmit={handleSubmitForeshadowing} className="mb-3 bg-white border border-purple-300 rounded-lg p-3 space-y-2">
+                        <div>
+                          <label className="text-xs font-medium text-purple-900 block mb-1">
+                            Target Chapter (Reveal)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max={chapters.length}
+                            value={foreshadowingFormData.targetChapterId}
+                            onChange={(e) => setForeshadowingFormData({ ...foreshadowingFormData, targetChapterId: parseInt(e.target.value) })}
+                            className="w-full text-xs px-2 py-1 border border-purple-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-purple-900 block mb-1">
+                            What to Reveal
+                          </label>
+                          <textarea
+                            value={foreshadowingFormData.revealDescription}
+                            onChange={(e) => setForeshadowingFormData({ ...foreshadowingFormData, revealDescription: e.target.value })}
+                            className="w-full text-xs px-2 py-1 border border-purple-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 resize-y min-h-[60px]"
+                            placeholder="e.g., The witch is revealed to be the hero's mother"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-purple-900 block mb-1">
+                            How to Hint (in earlier chapters)
+                          </label>
+                          <textarea
+                            value={foreshadowingFormData.foreshadowingHint}
+                            onChange={(e) => setForeshadowingFormData({ ...foreshadowingFormData, foreshadowingHint: e.target.value })}
+                            className="w-full text-xs px-2 py-1 border border-purple-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 resize-y min-h-[60px]"
+                            placeholder="e.g., Mention the witch has the same eye color as the hero"
+                            required
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            className="text-xs px-3 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                          >
+                            {editingForeshadowingId ? 'Update' : 'Add'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCancelForeshadowing}
+                            className="text-xs px-3 py-1.5 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    {reveals.length > 0 && (
+                      <div className="mb-3">
+                        <div className="text-xs font-semibold text-amber-800 mb-1.5 flex items-center gap-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                          </svg>
+                          Reveals in This Chapter:
+                        </div>
+                        <div className="space-y-1.5">
+                          {reveals.map((note) => (
+                            <div key={note.id} className="text-xs bg-amber-50 border border-amber-200 rounded p-2">
+                              <div className="flex justify-between items-start gap-2">
+                                <p className="font-medium text-amber-900 flex-1">{note.revealDescription}</p>
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() => handleEditForeshadowing(note)}
+                                    className="text-blue-600 hover:text-blue-800"
+                                    title="Edit"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                    </svg>
+                                  </button>
+                                  {onDeleteForeshadowingNote && (
+                                    <button
+                                      onClick={() => onDeleteForeshadowingNote(note.id)}
+                                      className="text-red-600 hover:text-red-800"
+                                      title="Delete"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {hints.length > 0 && (
+                      <div>
+                        <div className="text-xs font-semibold text-purple-800 mb-1.5 flex items-center gap-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                          </svg>
+                          Hints to Include:
+                        </div>
+                        <div className="space-y-1.5">
+                          {hints.map((note) => (
+                            <div key={note.id} className="text-xs bg-white border border-purple-200 rounded p-2">
+                              <div className="flex justify-between items-start gap-2">
+                                <div className="flex-1">
+                                  <p className="font-medium text-purple-900 mb-0.5">
+                                    For Chapter {note.targetChapterId}:
+                                  </p>
+                                  <p className="text-purple-700 italic">{note.foreshadowingHint}</p>
+                                </div>
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() => handleEditForeshadowing(note)}
+                                    className="text-blue-600 hover:text-blue-800"
+                                    title="Edit"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                    </svg>
+                                  </button>
+                                  {onDeleteForeshadowingNote && (
+                                    <button
+                                      onClick={() => onDeleteForeshadowingNote(note.id)}
+                                      className="text-red-600 hover:text-red-800"
+                                      title="Delete"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {!showForeshadowingForm && hints.length === 0 && reveals.length === 0 && (
+                      <p className="text-xs text-purple-600 italic text-center py-2">
+                        No foreshadowing notes yet. Click "+ Add" to create one.
+                      </p>
+                    )}
                   </div>
                 )}
 

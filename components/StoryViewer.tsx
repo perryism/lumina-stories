@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Chapter } from '../types';
+import { Chapter, ForeshadowingNote } from '../types';
 import { exportStoryToText } from '../utils/exportStory';
 
 interface StoryViewerProps {
@@ -11,6 +11,7 @@ interface StoryViewerProps {
   isRegenerating?: boolean;
   onSave?: () => void;
   onBack?: () => void;
+  foreshadowingNotes?: ForeshadowingNote[];
 }
 
 export const StoryViewer: React.FC<StoryViewerProps> = ({
@@ -20,13 +21,15 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   onRegenerateChapter,
   isRegenerating = false,
   onSave,
-  onBack
+  onBack,
+  foreshadowingNotes = []
 }) => {
   // Filter to only show completed chapters
   const completedChapters = chapters.filter(ch => ch.status === 'completed' && ch.content);
   const [activeChapterIndex, setActiveChapterIndex] = useState(0);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [showForeshadowing, setShowForeshadowing] = useState(false);
 
   const activeChapter = completedChapters[activeChapterIndex];
 
@@ -34,6 +37,29 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     // Export only completed chapters
     exportStoryToText(title, completedChapters, genre);
   };
+
+  // Get foreshadowing notes relevant to the current chapter
+  const getRelevantForeshadowingNotes = () => {
+    if (!activeChapter || !foreshadowingNotes || foreshadowingNotes.length === 0) {
+      return { hints: [], reveals: [] };
+    }
+
+    const currentChapterNumber = chapters.findIndex(ch => ch.id === activeChapter.id) + 1;
+
+    // Notes that should be hinted at in this chapter (target chapter is later)
+    const hints = foreshadowingNotes.filter(
+      note => note.targetChapterId > currentChapterNumber
+    );
+
+    // Notes that are revealed in this chapter
+    const reveals = foreshadowingNotes.filter(
+      note => note.targetChapterId === currentChapterNumber
+    );
+
+    return { hints, reveals };
+  };
+
+  const { hints, reveals } = getRelevantForeshadowingNotes();
 
   const handleSubmitFeedback = () => {
     if (feedback.trim() && onRegenerateChapter && activeChapter) {
@@ -107,6 +133,78 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
             <span className="truncate">{chapter.title}</span>
           </button>
         ))}
+
+        {/* Foreshadowing Section */}
+        {(hints.length > 0 || reveals.length > 0) && (
+          <div className="pt-4 mt-4 border-t border-slate-200">
+            <button
+              onClick={() => setShowForeshadowing(!showForeshadowing)}
+              className="w-full px-4 py-3 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold transition-all flex items-center justify-between gap-2 border border-purple-200"
+            >
+              <div className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                  <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                </svg>
+                <span>Foreshadowing</span>
+                <span className="text-xs bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full">
+                  {hints.length + reveals.length}
+                </span>
+              </div>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className={`h-5 w-5 transition-transform ${showForeshadowing ? 'rotate-180' : ''}`}
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+
+            {showForeshadowing && (
+              <div className="mt-2 space-y-2">
+                {reveals.length > 0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wide mb-2 flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                      </svg>
+                      Reveals in This Chapter
+                    </h4>
+                    <div className="space-y-2">
+                      {reveals.map((note) => (
+                        <div key={note.id} className="text-sm text-amber-900 bg-white rounded p-2">
+                          <p className="font-medium">{note.revealDescription}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {hints.length > 0 && (
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                    <h4 className="text-xs font-bold text-purple-800 uppercase tracking-wide mb-2 flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                      Hints for Future Reveals
+                    </h4>
+                    <div className="space-y-2">
+                      {hints.map((note) => (
+                        <div key={note.id} className="text-sm text-purple-900 bg-white rounded p-2">
+                          <p className="font-medium mb-1">
+                            Will reveal in Chapter {note.targetChapterId}:
+                          </p>
+                          <p className="text-purple-700 italic">{note.foreshadowingHint}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="pt-4 mt-4 border-t border-slate-200 space-y-2">

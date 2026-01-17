@@ -504,6 +504,10 @@ const App: React.FC = () => {
           chapterOutcomes={chapterOutcomes}
           onSelectOutcome={handleSelectOutcome}
           onSave={handleSaveStory}
+          foreshadowingNotes={state.foreshadowingNotes}
+          onAddForeshadowingNote={handleAddForeshadowingNote}
+          onUpdateForeshadowingNote={handleUpdateForeshadowingNote}
+          onDeleteForeshadowingNote={handleDeleteForeshadowingNote}
         />
       )}
 
@@ -583,6 +587,7 @@ const App: React.FC = () => {
           isRegenerating={isLoading}
           onSave={handleSaveStory}
           onBack={handleBackFromReader}
+          foreshadowingNotes={state.foreshadowingNotes}
         />
       )}
     </Layout>
