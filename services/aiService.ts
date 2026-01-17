@@ -339,7 +339,16 @@ Chapter Title: ${currentChapter.title}
 Chapter Summary: ${currentChapter.summary}
 
 Overall Story Context:
-- Previous developments: ${previousChaptersSummary || "This is the first chapter."}
+${previousChaptersSummary ? `Previous chapters summary:
+${previousChaptersSummary}
+
+CRITICAL CONTINUITY REQUIREMENTS:
+- DO NOT repeat events, revelations, or discoveries that already occurred in previous chapters
+- Characters should already know information that was revealed to them in previous chapters
+- Build upon and advance the story from where the previous chapter left off
+- Reference previous events naturally when relevant, but move the story forward
+- Maintain all established facts, character relationships, and world-building elements
+- If a character learned something or experienced something in a previous chapter, they remember it in this chapter` : "This is the first chapter - establish the story world and characters."}
 
 Characters in this chapter:
 ${charactersPrompt}
@@ -349,7 +358,10 @@ Instructions:
 - Focus on showing rather than telling.
 - Include dialogue where appropriate.
 - The chapter should be approximately 600-1000 words.
-- Ensure continuity with the provided characters and plot.${characterNote}${readingLevelInstructions}${foreshadowingInstructions}${acceptanceCriteriaInstructions}`;
+- Ensure strong continuity with the provided characters, plot developments, and established story elements.
+- Reference previous events naturally when relevant to maintain story coherence.
+- Keep character personalities, relationships, and any supernatural/fantasy elements consistent with what has been established.
+- ADVANCE the plot - do not retread ground already covered in previous chapters.${characterNote}${readingLevelInstructions}${foreshadowingInstructions}${acceptanceCriteriaInstructions}`;
 };
 
 export const generateChapterContent = async (
@@ -419,11 +431,27 @@ export const generateChapterContent = async (
 export const summarizePreviousChapters = async (chapters: Chapter[]): Promise<string> => {
   if (chapters.length === 0) return "";
 
+  // Include more content from each chapter for better context
+  // Use up to 2000 characters to capture key plot points and character developments
   const textToSummarize = chapters
-    .map((c) => `Chapter ${c.id}: ${c.title}\n${c.content.substring(0, 500)}...`)
+    .map((c) => `Chapter ${c.id}: ${c.title}\n${c.content.substring(0, 2000)}...`)
     .join("\n\n");
 
-  const prompt = `Summarize the key plot points and character developments in these chapters briefly to help write the next one:\n\n${textToSummarize}`;
+  const prompt = `Summarize the key plot points, character developments, and important story elements in these chapters. This summary will be used to generate the next chapter, so it's critical to capture everything important. Focus on:
+
+- Major events and plot developments (what actually happened)
+- Character interactions and relationships (who met, what they discussed, how they feel about each other)
+- Important revelations or discoveries (what was learned or revealed)
+- Supernatural or fantasy elements introduced (magical abilities, creatures, rules of the world)
+- Emotional arcs and conflicts (internal struggles, tensions between characters)
+- Any foreshadowing or setup for future events
+- Current state of affairs (where characters are, what they're doing, what problems they face)
+
+IMPORTANT: Be specific and detailed. Include character names, specific events, and exact revelations. The next chapter must build on these events without repeating or contradicting them.
+
+Chapters to summarize:
+
+${textToSummarize}`;
 
   if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
     const client = AI_PROVIDER === "local" ? localClient : openaiClient;
@@ -434,22 +462,29 @@ export const summarizePreviousChapters = async (chapters: Chapter[]): Promise<st
       messages: [
         {
           role: "system",
-          content: "You are a helpful assistant that summarizes story chapters concisely.",
+          content: "You are a professional story editor creating detailed chapter summaries. Your summaries must capture ALL important plot points, character developments, revelations, and story elements in detail. Be specific with names, events, and discoveries. These summaries are critical for maintaining story continuity and preventing contradictions or repetition in subsequent chapters.",
         },
         { role: "user", content: prompt },
       ],
-      temperature: 0.5,
+      temperature: 0.3, // Lower temperature for more consistent, factual summaries
     });
 
-    return response.choices[0].message.content || "";
+    const summary = response.choices[0].message.content || "";
+    console.log(`[Summary] Generated summary for ${chapters.length} chapter(s):\n${summary.substring(0, 500)}...`);
+    return summary;
   } else {
     // Gemini implementation
     const response = await geminiClient.models.generateContent({
       model: MODELS.gemini.summary,
       contents: prompt,
+      config: {
+        temperature: 0.3, // Lower temperature for more consistent, factual summaries
+      },
     });
 
-    return response.text || "";
+    const summary = response.text || "";
+    console.log(`[Summary] Generated summary for ${chapters.length} chapter(s):\n${summary.substring(0, 500)}...`);
+    return summary;
   }
 };
 
@@ -643,11 +678,13 @@ export const generateNextChapterOutcomes = async (
     'adult': 'adult readers (ages 18+)'
   }[readingLevel] : 'general audience';
 
-  const storyContext = completedChapters.length > 0
-    ? completedChapters.map((ch, idx) =>
-        `Chapter ${idx + 1}: ${ch.title}\n${ch.summary}\n${ch.content.substring(0, 300)}...`
-      ).join("\n\n")
-    : "This is the beginning of the story.";
+  // Generate a comprehensive summary of completed chapters for better context
+  let storyContext = "This is the beginning of the story.";
+  if (completedChapters.length > 0) {
+    // Use the same summarization approach as chapter generation for consistency
+    const summary = await summarizePreviousChapters(completedChapters);
+    storyContext = `Story so far (${completedChapters.length} chapter${completedChapters.length > 1 ? 's' : ''}):\n${summary}`;
+  }
 
   // Build foreshadowing instructions for the next chapter
   const nextChapterNumber = completedChapters.length + 1;
@@ -692,14 +729,14 @@ export const generateNextChapterOutcomes = async (
     Characters:
     ${charactersPrompt}
 
-    Story so far:
     ${storyContext}${foreshadowingInstructions}
 
     Generate THREE distinct and compelling possible directions for the next chapter. Each outcome should:
     - Offer a unique narrative direction or plot development
-    - Build naturally from what has happened so far
+    - Build naturally from what has happened so far (DO NOT repeat events or revelations that already occurred)
     - Be engaging and appropriate for the target audience
-    - Provide meaningful story progression
+    - Provide meaningful story progression that advances the plot
+    - Maintain continuity with established character knowledge and relationships
 
     For each outcome, provide:
     1. A catchy chapter title
@@ -707,6 +744,8 @@ export const generateNextChapterOutcomes = async (
     3. A more detailed 3-4 sentence description of what would happen
 
     Make the three outcomes distinctly different from each other - they could explore different themes, character arcs, plot twists, or emotional tones.
+
+    IMPORTANT: Each outcome must move the story FORWARD from where it currently is. Do not retread ground already covered.
   `;
 
   if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
