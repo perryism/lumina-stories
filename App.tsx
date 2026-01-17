@@ -9,7 +9,7 @@ import { TemplateBrowser } from './components/TemplateBrowser';
 import { ForeshadowingManager } from './components/ForeshadowingManager';
 import { Library } from './components/Library';
 import { StoryState, Chapter, Character, ReadingLevel, ChapterOutcome, StoryTemplate, ForeshadowingNote } from './types';
-import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt, regenerateChapterContent, generateNextChapterOutcomes, validateChapterContent } from './services/aiService';
+import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt, regenerateChapterContent, generateNextChapterOutcomes, validateChapterContent, generateChapterSuggestions } from './services/aiService';
 import { saveStory, loadStory } from './services/libraryService';
 
 // Helper function to add foreshadowing notes to target chapter's acceptance criteria
@@ -101,6 +101,25 @@ const App: React.FC = () => {
 
   const handleUpdateOutline = (updated: Chapter[]) => {
     setState(prev => ({ ...prev, outline: updated }));
+  };
+
+  const handleRequestChapterSuggestions = async (chapterIndex: number, userPrompt: string): Promise<Array<{ title: string; summary: string }>> => {
+    try {
+      const suggestions = await generateChapterSuggestions(
+        state.title,
+        state.genre,
+        state.characters,
+        state.outline,
+        chapterIndex,
+        userPrompt,
+        state.readingLevel,
+        state.systemPrompt
+      );
+      return suggestions;
+    } catch (error) {
+      console.error('Failed to generate suggestions:', error);
+      throw error;
+    }
   };
 
   const handleAddForeshadowingNote = (note: Omit<ForeshadowingNote, 'id' | 'createdAt'>) => {
@@ -680,6 +699,7 @@ const App: React.FC = () => {
             onConfirm={handleConfirmOutline}
             onManualMode={handleManualMode}
             onSave={handleSaveStory}
+            onRequestSuggestions={handleRequestChapterSuggestions}
           />
         </>
       )}

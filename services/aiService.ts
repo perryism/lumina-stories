@@ -872,3 +872,190 @@ export const generateNextChapterOutcomes = async (
     }));
   }
 };
+
+// Generate suggestions for improving a chapter in the outline
+export const generateChapterSuggestions = async (
+  storyTitle: string,
+  genre: string,
+  characters: Character[],
+  allChapters: Chapter[],
+  chapterIndex: number,
+  userPrompt: string,
+  readingLevel?: ReadingLevel,
+  customSystemPrompt?: string
+): Promise<Array<{ title: string; summary: string }>> => {
+  const currentChapter = allChapters[chapterIndex];
+  const charactersPrompt = characters
+    .map((c) => `${c.name}: ${c.attributes}`)
+    .join("\n");
+
+  const readingLevelNote = readingLevel ? {
+    'elementary': 'elementary school readers (ages 6-10)',
+    'middle-grade': 'middle grade readers (ages 8-12)',
+    'young-adult': 'young adult readers (ages 12-18)',
+    'adult': 'adult readers (ages 18+)'
+  }[readingLevel] : 'general audience';
+
+  // Build context from surrounding chapters
+  const previousChapters = allChapters.slice(0, chapterIndex);
+  const nextChapters = allChapters.slice(chapterIndex + 1);
+
+  let contextPrompt = '';
+  if (previousChapters.length > 0) {
+    contextPrompt += '\n\nPrevious chapters:\n';
+    previousChapters.forEach((ch, idx) => {
+      contextPrompt += `Chapter ${idx + 1}: ${ch.title}\n${ch.summary}\n\n`;
+    });
+  }
+
+  if (nextChapters.length > 0) {
+    contextPrompt += '\n\nUpcoming chapters:\n';
+    nextChapters.forEach((ch, idx) => {
+      contextPrompt += `Chapter ${chapterIndex + idx + 2}: ${ch.title}\n${ch.summary}\n\n`;
+    });
+  }
+
+  const userGuidance = userPrompt.trim()
+    ? `\n\nUser's specific request: ${userPrompt}\n\nMake sure to address the user's request in your suggestions.`
+    : '';
+
+  const prompt = `
+    You are helping to improve the outline for a ${genre} story titled "${storyTitle}" for ${readingLevelNote}.
+
+    Characters:
+    ${charactersPrompt}
+    ${contextPrompt}
+
+    Current Chapter ${chapterIndex + 1}:
+    Title: ${currentChapter.title}
+    Summary: ${currentChapter.summary}
+    ${userGuidance}
+
+    Generate THREE distinct alternative versions for this chapter that:
+    - Maintain the overall story flow and continuity with other chapters
+    - Offer creative improvements or different narrative approaches
+    - Are appropriate for the target audience
+    - Keep the chapter's general position and purpose in the story arc
+    ${userPrompt.trim() ? '- Address the specific improvements requested by the user' : '- Enhance drama, character development, or plot progression'}
+
+    Each suggestion should have a compelling title and a 2-3 sentence summary.
+  `;
+
+  if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
+    const client = AI_PROVIDER === "local" ? localClient : openaiClient;
+    const model = AI_PROVIDER === "local" ? MODELS.local.outline : MODELS.openai.outline;
+
+    const defaultSystemPrompt = "You are a creative story editor. Return your response as a JSON array of objects with 'title' and 'summary' fields.";
+    const systemPrompt = customSystemPrompt
+      ? `${customSystemPrompt}\n\nIMPORTANT: Return your response as a JSON array of objects with 'title' and 'summary' fields.`
+      : defaultSystemPrompt;
+
+    const requestParams: any = {
+      model: model,
+      messages: [
+        {
+          role: "system",
+          content: systemPrompt,
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.8,
+    };
+
+    // Add structured output for OpenAI if available
+    if (AI_PROVIDER === "openai") {
+      requestParams.response_format = {
+        type: "json_schema",
+        json_schema: {
+          name: "chapter_suggestions",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              suggestions: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string" },
+                    summary: { type: "string" },
+                  },
+                  required: ["title", "summary"],
+                  additionalProperties: false,
+                },
+              },
+            },
+            required: ["suggestions"],
+            additionalProperties: false,
+          },
+        },
+      };
+    }
+
+    const response = await client.chat.completions.create(requestParams);
+
+    try {
+      let content = response.choices[0].message.content || "{}";
+      console.log(`[${AI_PROVIDER}] Raw suggestions response:`, content);
+
+      // Strip markdown code blocks if present
+      content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+
+      const parsed = JSON.parse(content);
+      console.log(`[${AI_PROVIDER}] Parsed suggestions:`, parsed);
+
+      // Try to extract suggestions from various possible structures
+      let suggestions = parsed.suggestions || parsed;
+
+      if (!Array.isArray(suggestions)) {
+        console.error(`[${AI_PROVIDER}] Expected array but got:`, typeof suggestions);
+        throw new Error("Invalid response format");
+      }
+
+      console.log(`[${AI_PROVIDER}] Extracted ${suggestions.length} suggestions`);
+
+      return suggestions.slice(0, 3).map((item: any) => ({
+        title: item.title,
+        summary: item.summary,
+      }));
+    } catch (e) {
+      console.error(`Failed to parse ${AI_PROVIDER} suggestions JSON`, e);
+      throw new Error("Failed to generate valid suggestions.");
+    }
+  } else {
+    // Gemini implementation
+    const response = await geminiClient.models.generateContent({
+      model: MODELS.gemini.outline,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            suggestions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  summary: { type: Type.STRING },
+                },
+                required: ["title", "summary"],
+              },
+            },
+          },
+          required: ["suggestions"],
+        },
+        temperature: 0.8,
+      },
+    });
+
+    const parsed = JSON.parse(response.text);
+    const suggestions = parsed.suggestions || [];
+
+    return suggestions.slice(0, 3).map((item: any) => ({
+      title: item.title,
+      summary: item.summary,
+    }));
+  }
+};
