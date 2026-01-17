@@ -68,11 +68,15 @@ const storyToYAML = (story: SavedStory): string => {
         });
       }
       lines.push(`    status: "${chapter.status}"`);
+      // Always include content field, even if empty
+      lines.push(`    content: |`);
       if (chapter.content) {
-        lines.push(`    content: |`);
         chapter.content.split('\n').forEach(line => {
           lines.push(`      ${line}`);
         });
+      } else {
+        // Add an empty line to maintain proper YAML structure when content is empty
+        lines.push('');
       }
       if (chapter.foreshadowing && chapter.foreshadowing.length > 0) {
         lines.push(`    foreshadowing:`);
@@ -149,8 +153,10 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
       continue;
     }
 
-    // Skip other comments and empty lines
+    // Skip other comments and empty lines (but handle multiline finalization first)
     if (trimmed.startsWith('#') || trimmed === '') {
+      // If we're in a multiline context and hit an empty line, it might signal the end
+      // Check if the next non-empty line would start a new section
       continue;
     }
 
@@ -162,7 +168,17 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
       const isNewKey = line.trim().includes(':') && !line.trim().startsWith('-');
       const expectedIndent = currentChapterKey ? 4 : 2;
 
-      if (isNewKey && indent === expectedIndent) {
+      // Check if this line starts a new chapter (list item at indent 2)
+      const isNewChapter = line.trim().startsWith('- ') && indent === 2;
+
+      if (isNewChapter && currentChapterKey) {
+        // Finalize the current chapter's multiline content before starting new chapter
+        currentChapter[currentChapterKey] = currentMultiline.join('\n');
+        currentChapterKey = null;
+        currentKey = null;
+        currentMultiline = [];
+        // Don't continue, let this line be processed as a new chapter
+      } else if (isNewKey && indent === expectedIndent) {
         // This is a new key, finish the multiline
         if (currentChapterKey) {
           currentChapter[currentChapterKey] = currentMultiline.join('\n');
@@ -182,7 +198,8 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
         }
         continue;
       }
-    } else if (currentKey && currentMultiline.length > 0) {
+    } else if (currentKey) {
+      // Finalize multiline content even if empty
       if (currentChapterKey) {
         currentChapter[currentChapterKey] = currentMultiline.join('\n');
         currentChapterKey = null;
@@ -249,7 +266,7 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
         if (currentChapter) {
           story.state.outline.push(currentChapter);
         }
-        currentChapter = { foreshadowing: [] };
+        currentChapter = { foreshadowing: [], content: '' };
         const chapterKey = key.replace('- ', '');
         if (chapterKey === 'id') {
           currentChapter[chapterKey] = parseInt(value);

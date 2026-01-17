@@ -246,6 +246,80 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                         />
                       </div>
 
+                      {/* Acceptance Criteria for pending/next chapters */}
+                      {!isCompleted && (
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                          <div className="flex items-center gap-2 mb-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-600" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                              Acceptance Criteria (Optional)
+                            </label>
+                          </div>
+                          <textarea
+                            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-y min-h-[60px] bg-indigo-50/30"
+                            rows={2}
+                            value={chapter.acceptanceCriteria || ''}
+                            onChange={(e) => !isGenerating && onUpdateChapter(index, 'acceptanceCriteria', e.target.value)}
+                            disabled={isGenerating}
+                            placeholder="Define criteria this chapter must meet (e.g., 'Include a plot twist', 'Develop character relationship', 'Maintain suspenseful tone')..."
+                          />
+                          <p className="text-xs text-slate-500 mt-1.5 italic">
+                            After generation, the AI will validate if the chapter meets these criteria and maintains cohesion with previous chapters.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Show acceptance criteria for completed chapters */}
+                      {isCompleted && chapter.acceptanceCriteria && (
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                          <div className="flex items-center gap-2 mb-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-600" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            <div className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                              Acceptance Criteria
+                            </div>
+                          </div>
+                          <p className="text-sm text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
+                            {chapter.acceptanceCriteria}
+                          </p>
+                          {/* Show validation result if available */}
+                          {chapter.validationResult && (
+                            <div className={`mt-2 px-3 py-2 rounded-lg border ${
+                              chapter.validationResult.passed
+                                ? 'bg-green-50 border-green-200'
+                                : 'bg-amber-50 border-amber-200'
+                            }`}>
+                              <div className="flex items-start gap-2">
+                                {chapter.validationResult.passed ? (
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                  </svg>
+                                ) : (
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                                <div className="flex-1">
+                                  <div className={`text-xs font-semibold uppercase tracking-wide mb-1 ${
+                                    chapter.validationResult.passed ? 'text-green-700' : 'text-amber-700'
+                                  }`}>
+                                    {chapter.validationResult.passed ? 'Validation Passed' : 'Validation Issues'}
+                                  </div>
+                                  <p className={`text-sm ${
+                                    chapter.validationResult.passed ? 'text-green-700' : 'text-amber-700'
+                                  }`}>
+                                    {chapter.validationResult.feedback}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Character Selection for pending/next chapters */}
                       {!isCompleted && characters.length > 0 && (
                         <div className="mt-4 pt-4 border-t border-slate-100">
@@ -320,9 +394,13 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                           </button>
                           {isExpanded && (
                             <div className="mt-3 text-sm text-slate-600 leading-relaxed max-h-64 overflow-y-auto">
-                              {chapter.content.split('\n').map((para, i) => (
-                                para.trim() ? <p key={i} className="mb-3">{para}</p> : <br key={i} />
-                              ))}
+                              {chapter.content ? (
+                                chapter.content.split('\n').map((para, i) => (
+                                  para.trim() ? <p key={i} className="mb-3">{para}</p> : <br key={i} />
+                                ))
+                              ) : (
+                                <p className="text-slate-400 italic">No content generated yet</p>
+                              )}
                             </div>
                           )}
                         </div>

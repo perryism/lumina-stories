@@ -9,7 +9,7 @@ import { TemplateBrowser } from './components/TemplateBrowser';
 import { ForeshadowingManager } from './components/ForeshadowingManager';
 import { Library } from './components/Library';
 import { StoryState, Chapter, Character, ReadingLevel, ChapterOutcome, StoryTemplate, ForeshadowingNote } from './types';
-import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt, regenerateChapterContent, generateNextChapterOutcomes } from './services/aiService';
+import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt, regenerateChapterContent, generateNextChapterOutcomes, validateChapterContent } from './services/aiService';
 import { saveStory, loadStory } from './services/libraryService';
 
 const App: React.FC = () => {
@@ -36,6 +36,11 @@ const App: React.FC = () => {
   const [templateToLoad, setTemplateToLoad] = useState<StoryTemplate | null>(null);
   const [showLibrary, setShowLibrary] = useState(false);
   const [currentStoryId, setCurrentStoryId] = useState<string | null>(null);
+  const [validationPrompt, setValidationPrompt] = useState<{
+    chapterIndex: number;
+    content: string;
+    validationResult: { passed: boolean; feedback: string };
+  } | null>(null);
 
   const handleStartStory = async (data: { title: string; genre: string; numChapters: number; readingLevel: ReadingLevel; characters: Character[]; initialIdea: string; systemPrompt?: string }) => {
     setIsLoading(true);
@@ -170,6 +175,52 @@ const App: React.FC = () => {
         state.foreshadowingNotes
       );
 
+      // Validate chapter if acceptance criteria is defined
+      const currentChapter = updatedOutline[nextIndex];
+      let validationResult: { passed: boolean; feedback: string } | undefined;
+
+      if (currentChapter.acceptanceCriteria && currentChapter.acceptanceCriteria.trim()) {
+        try {
+          validationResult = await validateChapterContent(
+            content,
+            currentChapter.acceptanceCriteria,
+            currentChapter.title,
+            currentChapter.summary,
+            previousSummary,
+            state.genre
+          );
+
+          // Store validation result in chapter
+          updatedOutline[nextIndex] = {
+            ...updatedOutline[nextIndex],
+            validationResult: {
+              ...validationResult,
+              timestamp: Date.now()
+            }
+          };
+
+          // If validation failed, prompt user for retry
+          if (!validationResult.passed) {
+            updatedOutline[nextIndex] = {
+              ...updatedOutline[nextIndex],
+              content,
+              status: 'completed'
+            };
+            setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+            setValidationPrompt({
+              chapterIndex: nextIndex,
+              content,
+              validationResult
+            });
+            setIsLoading(false);
+            return; // Exit early to show validation prompt
+          }
+        } catch (err) {
+          console.error("Validation failed:", err);
+          // Continue even if validation fails
+        }
+      }
+
       // Update with completed content
       updatedOutline[nextIndex] = { ...updatedOutline[nextIndex], content, status: 'completed' };
       setState(prev => ({ ...prev, outline: [...updatedOutline] }));
@@ -240,6 +291,25 @@ const App: React.FC = () => {
     setTimeout(() => {
       updatePromptForNextChapter();
     }, 100);
+  };
+
+  const handleAcceptValidation = () => {
+    // User accepts the chapter despite validation issues
+    setValidationPrompt(null);
+    // Update prompt for next chapter
+    setTimeout(() => {
+      updatePromptForNextChapter();
+    }, 100);
+  };
+
+  const handleRetryGeneration = async () => {
+    if (!validationPrompt) return;
+
+    const { chapterIndex, validationResult } = validationPrompt;
+    setValidationPrompt(null);
+
+    // Use the validation feedback as regeneration feedback
+    await handleRegenerateChapter(chapterIndex, validationResult.feedback);
   };
 
   const handleRegenerateChapter = async (chapterIndex: number, feedback: string) => {
@@ -486,29 +556,104 @@ const App: React.FC = () => {
       )}
 
       {state.currentStep === 'manual-generation' && (
-        <ManualChapterGenerator
-          title={state.title}
-          chapters={state.outline}
-          characters={state.characters}
-          currentPrompt={currentPrompt}
-          systemPrompt={state.systemPrompt}
-          genre={state.genre}
-          onUpdateChapter={handleUpdateChapter}
-          onUpdatePrompt={setCurrentPrompt}
-          onUpdateSystemPrompt={(prompt) => setState(prev => ({ ...prev, systemPrompt: prompt }))}
-          onGenerateNext={handleGenerateNextChapter}
-          onRegenerateChapter={handleRegenerateChapter}
-          onViewStory={handleViewStory}
-          isGenerating={isLoading}
-          isContinuousMode={isContinuousMode}
-          chapterOutcomes={chapterOutcomes}
-          onSelectOutcome={handleSelectOutcome}
-          onSave={handleSaveStory}
-          foreshadowingNotes={state.foreshadowingNotes}
-          onAddForeshadowingNote={handleAddForeshadowingNote}
-          onUpdateForeshadowingNote={handleUpdateForeshadowingNote}
-          onDeleteForeshadowingNote={handleDeleteForeshadowingNote}
-        />
+        <>
+          <ManualChapterGenerator
+            title={state.title}
+            chapters={state.outline}
+            characters={state.characters}
+            currentPrompt={currentPrompt}
+            systemPrompt={state.systemPrompt}
+            genre={state.genre}
+            onUpdateChapter={handleUpdateChapter}
+            onUpdatePrompt={setCurrentPrompt}
+            onUpdateSystemPrompt={(prompt) => setState(prev => ({ ...prev, systemPrompt: prompt }))}
+            onGenerateNext={handleGenerateNextChapter}
+            onRegenerateChapter={handleRegenerateChapter}
+            onViewStory={handleViewStory}
+            isGenerating={isLoading}
+            isContinuousMode={isContinuousMode}
+            chapterOutcomes={chapterOutcomes}
+            onSelectOutcome={handleSelectOutcome}
+            onSave={handleSaveStory}
+            foreshadowingNotes={state.foreshadowingNotes}
+            onAddForeshadowingNote={handleAddForeshadowingNote}
+            onUpdateForeshadowingNote={handleUpdateForeshadowingNote}
+            onDeleteForeshadowingNote={handleDeleteForeshadowingNote}
+          />
+
+          {/* Validation Prompt Modal */}
+          {validationPrompt && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6 border-b border-slate-200">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-600" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-slate-900 mb-1">
+                        Chapter Validation Issues
+                      </h3>
+                      <p className="text-sm text-slate-600">
+                        Chapter {validationPrompt.chapterIndex + 1}: {state.outline[validationPrompt.chapterIndex]?.title}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div className="flex items-start gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                      <div className="flex-1">
+                        <h4 className="text-sm font-semibold text-amber-900 mb-1">Validation Feedback</h4>
+                        <p className="text-sm text-amber-800">{validationPrompt.validationResult.feedback}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-slate-900 mb-2">Acceptance Criteria</h4>
+                    <p className="text-sm text-slate-700">
+                      {state.outline[validationPrompt.chapterIndex]?.acceptanceCriteria}
+                    </p>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-200">
+                    <p className="text-sm text-slate-600 mb-4">
+                      The generated chapter doesn't fully meet the acceptance criteria or has cohesion issues with previous chapters.
+                      You can either accept the chapter as-is or regenerate it with the validation feedback.
+                    </p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleAcceptValidation}
+                        className="flex-1 px-4 py-3 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        Accept Chapter
+                      </button>
+                      <button
+                        onClick={handleRetryGeneration}
+                        className="flex-1 px-4 py-3 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                        </svg>
+                        Regenerate Chapter
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {state.currentStep === 'generating' && (

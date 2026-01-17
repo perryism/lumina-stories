@@ -22,6 +22,12 @@ export interface Chapter {
   characterIds?: string[]; // IDs of characters participating in this chapter
   foreshadowingNotes?: ForeshadowingNote[]; // Notes for events that will be revealed in this chapter
   foreshadowing?: string[]; // Array of foreshadowing hints for this chapter
+  acceptanceCriteria?: string; // Criteria that the generated chapter must meet
+  validationResult?: {
+    passed: boolean;
+    feedback: string;
+    timestamp: number;
+  };
 }
 
 export interface ChapterOutcome {

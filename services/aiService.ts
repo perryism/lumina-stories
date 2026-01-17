@@ -315,6 +315,15 @@ export const buildChapterPrompt = (
     }
   }
 
+  // Build acceptance criteria instructions
+  let acceptanceCriteriaInstructions = '';
+  if (currentChapter.acceptanceCriteria && currentChapter.acceptanceCriteria.trim()) {
+    acceptanceCriteriaInstructions = `\n\nACCEPTANCE CRITERIA (MUST MEET):
+${currentChapter.acceptanceCriteria}
+
+IMPORTANT: Ensure the chapter content explicitly addresses and meets all the acceptance criteria listed above.`;
+  }
+
   return `Write Chapter ${chapterIndex + 1} of the ${genre} story titled "${storyTitle}".
 
 Chapter Title: ${currentChapter.title}
@@ -331,7 +340,7 @@ Instructions:
 - Focus on showing rather than telling.
 - Include dialogue where appropriate.
 - The chapter should be approximately 600-1000 words.
-- Ensure continuity with the provided characters and plot.${characterNote}${readingLevelInstructions}${foreshadowingInstructions}`;
+- Ensure continuity with the provided characters and plot.${characterNote}${readingLevelInstructions}${foreshadowingInstructions}${acceptanceCriteriaInstructions}`;
 };
 
 export const generateChapterContent = async (
@@ -432,6 +441,90 @@ export const summarizePreviousChapters = async (chapters: Chapter[]): Promise<st
     });
 
     return response.text || "";
+  }
+};
+
+// Validate chapter content against acceptance criteria and cohesion with previous chapters
+export const validateChapterContent = async (
+  chapterContent: string,
+  acceptanceCriteria: string,
+  chapterTitle: string,
+  chapterSummary: string,
+  previousChaptersSummary: string,
+  genre: string
+): Promise<{ passed: boolean; feedback: string }> => {
+  const prompt = `You are a professional story editor. Evaluate the following chapter content against the specified acceptance criteria and check for cohesion with previous chapters.
+
+Chapter Title: ${chapterTitle}
+Expected Summary: ${chapterSummary}
+
+Previous Chapters Context:
+${previousChaptersSummary || "This is the first chapter."}
+
+Acceptance Criteria:
+${acceptanceCriteria}
+
+Chapter Content to Validate:
+${chapterContent}
+
+Please evaluate:
+1. Does the chapter meet all the specified acceptance criteria?
+2. Does the chapter maintain cohesion with the previous chapters (consistent tone, character behavior, plot continuity)?
+3. Does the chapter match the expected summary and title?
+
+Respond in JSON format with:
+{
+  "passed": true/false,
+  "feedback": "Brief explanation of what passed or what issues were found"
+}`;
+
+  try {
+    if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
+      const client = AI_PROVIDER === "local" ? localClient : openaiClient;
+      const model = AI_PROVIDER === "local" ? MODELS.local.summary : MODELS.openai.summary;
+
+      const response = await client.chat.completions.create({
+        model: model,
+        messages: [
+          {
+            role: "system",
+            content: `You are a professional story editor specializing in ${genre} stories. Evaluate chapter content objectively and provide constructive feedback.`,
+          },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.3,
+        response_format: { type: "json_object" },
+      });
+
+      const result = JSON.parse(response.choices[0].message.content || '{"passed": true, "feedback": "Validation completed."}');
+      return {
+        passed: result.passed ?? true,
+        feedback: result.feedback || "Validation completed."
+      };
+    } else {
+      // Gemini implementation
+      const response = await geminiClient.models.generateContent({
+        model: MODELS.gemini.summary,
+        contents: prompt,
+        config: {
+          temperature: 0.3,
+          responseMimeType: "application/json",
+        },
+      });
+
+      const result = JSON.parse(response.text || '{"passed": true, "feedback": "Validation completed."}');
+      return {
+        passed: result.passed ?? true,
+        feedback: result.feedback || "Validation completed."
+      };
+    }
+  } catch (error) {
+    console.error("Validation error:", error);
+    // If validation fails, default to passing to not block the user
+    return {
+      passed: true,
+      feedback: "Validation could not be completed. Please review manually."
+    };
   }
 };
 
