@@ -49,6 +49,7 @@ export interface StoryState {
   plotOutline?: string; // The initial plot outline/idea
   systemPrompt?: string;
   foreshadowingNotes?: ForeshadowingNote[]; // Global foreshadowing notes for the story
+  chapterOutcomes?: ChapterOutcome[]; // Suggested outcomes for the next chapter in continuous mode
 }
 
 export enum GenerationStatus {

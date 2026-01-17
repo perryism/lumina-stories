@@ -293,10 +293,13 @@ const App: React.FC = () => {
             state.foreshadowingNotes
           );
           setChapterOutcomes(outcomes);
+          // Update state with outcomes for persistence
+          setState(prev => ({ ...prev, chapterOutcomes: outcomes }));
         } catch (err: any) {
           console.error("Failed to generate outcomes", err);
           // Don't fail the whole operation if outcomes fail
           setChapterOutcomes([]);
+          setState(prev => ({ ...prev, chapterOutcomes: [] }));
         }
       }
 
@@ -344,6 +347,7 @@ const App: React.FC = () => {
       return {
         ...prev,
         outline: outlineWithForeshadowing,
+        chapterOutcomes: [], // Clear outcomes after selection
       };
     });
 
@@ -354,6 +358,34 @@ const App: React.FC = () => {
     setTimeout(() => {
       updatePromptForNextChapter();
     }, 100);
+  };
+
+  const handleGenerateOutcomes = async () => {
+    if (!isContinuousMode) return;
+
+    setIsLoading(true);
+    try {
+      const completedChapters = state.outline.filter(c => c.status === 'completed');
+      const outcomes = await generateNextChapterOutcomes(
+        state.title,
+        state.genre,
+        state.characters,
+        completedChapters,
+        state.readingLevel,
+        state.systemPrompt,
+        state.foreshadowingNotes
+      );
+      setChapterOutcomes(outcomes);
+      // Update state with outcomes for persistence
+      setState(prev => ({ ...prev, chapterOutcomes: outcomes }));
+    } catch (err: any) {
+      console.error("Failed to generate outcomes", err);
+      setError('Failed to generate chapter suggestions. Please try again.');
+      setChapterOutcomes([]);
+      setState(prev => ({ ...prev, chapterOutcomes: [] }));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAcceptValidation = () => {
@@ -524,10 +556,35 @@ const App: React.FC = () => {
         loadedState.foreshadowingNotes || []
       );
 
+      // Detect if this is continuous mode (story has completed chapters and can continue)
+      const hasCompletedChapters = loadedState.outline.some(ch => ch.status === 'completed');
+      const hasIncompleteChapters = loadedState.outline.some(ch => ch.status === 'pending');
+      const isContinuous = hasCompletedChapters && !hasIncompleteChapters;
+
+      setIsContinuousMode(isContinuous);
+      setInitialChapterCount(loadedState.outline.length);
+
       setState({
         ...loadedState,
         outline: outlineWithForeshadowing,
+        // If story has completed chapters, set to manual-generation to show continue options
+        currentStep: hasCompletedChapters ? 'manual-generation' : loadedState.currentStep,
       });
+
+      // Restore chapter outcomes if they exist
+      if (loadedState.chapterOutcomes && loadedState.chapterOutcomes.length > 0) {
+        setChapterOutcomes(loadedState.chapterOutcomes);
+      } else {
+        setChapterOutcomes([]);
+      }
+
+      // Initialize prompt for next chapter if in manual mode
+      if (hasCompletedChapters) {
+        setTimeout(() => {
+          updatePromptForNextChapter();
+        }, 100);
+      }
+
       setCurrentStoryId(storyId);
       setError(null);
       setShowLibrary(false);
@@ -646,6 +703,7 @@ const App: React.FC = () => {
             isContinuousMode={isContinuousMode}
             chapterOutcomes={chapterOutcomes}
             onSelectOutcome={handleSelectOutcome}
+            onGenerateOutcomes={handleGenerateOutcomes}
             onSave={handleSaveStory}
             foreshadowingNotes={state.foreshadowingNotes}
             onAddForeshadowingNote={handleAddForeshadowingNote}

@@ -111,6 +111,17 @@ const storyToYAML = (story: SavedStory): string => {
     });
   }
 
+  // Add chapter outcomes if they exist
+  if (state.chapterOutcomes && state.chapterOutcomes.length > 0) {
+    lines.push('');
+    lines.push('chapterOutcomes:');
+    state.chapterOutcomes.forEach((outcome) => {
+      lines.push(`  - title: "${escapeYAMLString(outcome.title)}"`);
+      lines.push(`    summary: "${escapeYAMLString(outcome.summary)}"`);
+      lines.push(`    description: "${escapeYAMLString(outcome.description)}"`);
+    });
+  }
+
   return lines.join('\n');
 };
 
@@ -124,7 +135,8 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
     state: {
       characters: [],
       outline: [],
-      foreshadowingNotes: []
+      foreshadowingNotes: [],
+      chapterOutcomes: []
     }
   };
 
@@ -133,11 +145,13 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
   let inCharacters = false;
   let inOutline = false;
   let inForeshadowingNotes = false;
+  let inChapterOutcomes = false;
   let currentCharacter: any = null;
   let currentChapter: any = null;
   let currentChapterKey: string | null = null;
   let inForeshadowing = false;
   let currentForeshadowingNote: any = null;
+  let currentChapterOutcome: any = null;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -229,6 +243,7 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
         inCharacters = true;
         inOutline = false;
         inForeshadowingNotes = false;
+        inChapterOutcomes = false;
         if (value === '[]') {
           story.state.characters = [];
         }
@@ -239,6 +254,7 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
         inOutline = true;
         inCharacters = false;
         inForeshadowingNotes = false;
+        inChapterOutcomes = false;
         if (value === '[]') {
           story.state.outline = [];
         }
@@ -249,9 +265,22 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
         inForeshadowingNotes = true;
         inCharacters = false;
         inOutline = false;
+        inChapterOutcomes = false;
         story.state.foreshadowingNotes = [];
         if (value === '[]') {
           story.state.foreshadowingNotes = [];
+        }
+        continue;
+      }
+
+      if (key === 'chapterOutcomes') {
+        inChapterOutcomes = true;
+        inForeshadowingNotes = false;
+        inCharacters = false;
+        inOutline = false;
+        story.state.chapterOutcomes = [];
+        if (value === '[]') {
+          story.state.chapterOutcomes = [];
         }
         continue;
       }
@@ -319,8 +348,21 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
           }
         }
       }
+      // ChapterOutcomes parsing
+      else if (inChapterOutcomes && line.startsWith('  - ')) {
+        if (currentChapterOutcome) {
+          story.state.chapterOutcomes.push(currentChapterOutcome);
+        }
+        currentChapterOutcome = {};
+        const outcomeKey = key.replace('- ', '');
+        currentChapterOutcome[outcomeKey] = unescapeYAMLString(value);
+      } else if (inChapterOutcomes && line.startsWith('    ')) {
+        if (currentChapterOutcome) {
+          currentChapterOutcome[key] = unescapeYAMLString(value);
+        }
+      }
       // State-level keys
-      else if (!inCharacters && !inOutline && !inForeshadowingNotes) {
+      else if (!inCharacters && !inOutline && !inForeshadowingNotes && !inChapterOutcomes) {
         if (value === '|') {
           currentKey = key;
           currentMultiline = [];
@@ -350,6 +392,12 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
   if (currentForeshadowingNote) {
     story.state.foreshadowingNotes = story.state.foreshadowingNotes || [];
     story.state.foreshadowingNotes.push(currentForeshadowingNote);
+  }
+
+  // Add last chapter outcome if exists
+  if (currentChapterOutcome) {
+    story.state.chapterOutcomes = story.state.chapterOutcomes || [];
+    story.state.chapterOutcomes.push(currentChapterOutcome);
   }
 
   // Add last multiline if exists

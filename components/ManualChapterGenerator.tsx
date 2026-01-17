@@ -21,6 +21,7 @@ interface ManualChapterGeneratorProps {
   isContinuousMode?: boolean;
   chapterOutcomes?: ChapterOutcome[];
   onSelectOutcome?: (outcome: ChapterOutcome) => void;
+  onGenerateOutcomes?: () => void;
   onSave?: () => void;
   foreshadowingNotes?: ForeshadowingNote[];
   onAddForeshadowingNote?: (note: Omit<ForeshadowingNote, 'id' | 'createdAt'>) => void;
@@ -45,6 +46,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   isContinuousMode = false,
   chapterOutcomes = [],
   onSelectOutcome,
+  onGenerateOutcomes,
   onSave,
   foreshadowingNotes = [],
   onAddForeshadowingNote,
@@ -835,54 +837,97 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
       </div>
 
       {/* Chapter Outcomes Section - Only in Continuous Mode */}
-      {isContinuousMode && chapterOutcomes.length > 0 && onSelectOutcome && (
+      {isContinuousMode && onSelectOutcome && (
         <div className="mt-8 max-w-5xl mx-auto">
           <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6 border border-indigo-100">
             <div className="mb-6">
               <h3 className="text-2xl font-bold text-slate-900 mb-2">What happens next?</h3>
-              <p className="text-slate-600">Choose a direction for your story to continue:</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {chapterOutcomes.map((outcome, index) => (
-                <button
-                  key={index}
-                  onClick={() => onSelectOutcome(outcome)}
-                  disabled={isGenerating}
-                  className="bg-white rounded-xl p-5 border-2 border-transparent hover:border-indigo-400 hover:shadow-lg transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center font-bold text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                      {index + 1}
-                    </div>
-                    <h4 className="flex-1 font-bold text-lg text-slate-900 group-hover:text-indigo-600 transition-colors">
-                      {outcome.title}
-                    </h4>
-                  </div>
-
-                  <p className="text-sm text-slate-600 mb-3 font-medium">
-                    {outcome.summary}
-                  </p>
-
-                  <p className="text-sm text-slate-500 leading-relaxed">
-                    {outcome.description}
-                  </p>
-
-                  <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-end gap-2 text-indigo-600 font-semibold text-sm group-hover:text-indigo-700">
-                    <span>Choose this path</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 group-hover:translate-x-1 transition-transform" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-4 text-center">
-              <p className="text-xs text-slate-500 italic">
-                💡 Tip: Each option leads to a different narrative direction. Choose the one that excites you most!
+              <p className="text-slate-600">
+                {chapterOutcomes.length > 0
+                  ? 'Choose a direction for your story to continue:'
+                  : 'Generate suggestions for the next chapter:'}
               </p>
             </div>
+
+            {chapterOutcomes.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {chapterOutcomes.map((outcome, index) => (
+                    <button
+                      key={index}
+                      onClick={() => onSelectOutcome(outcome)}
+                      disabled={isGenerating}
+                      className="bg-white rounded-xl p-5 border-2 border-transparent hover:border-indigo-400 hover:shadow-lg transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="flex-shrink-0 w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center font-bold text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                          {index + 1}
+                        </div>
+                        <h4 className="flex-1 font-bold text-lg text-slate-900 group-hover:text-indigo-600 transition-colors">
+                          {outcome.title}
+                        </h4>
+                      </div>
+
+                      <p className="text-sm text-slate-600 mb-3 font-medium">
+                        {outcome.summary}
+                      </p>
+
+                      <p className="text-sm text-slate-500 leading-relaxed">
+                        {outcome.description}
+                      </p>
+
+                      <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-end gap-2 text-indigo-600 font-semibold text-sm group-hover:text-indigo-700">
+                        <span>Choose this path</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 group-hover:translate-x-1 transition-transform" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-4 text-center">
+                  <p className="text-xs text-slate-500 italic">
+                    💡 Tip: Each option leads to a different narrative direction. Choose the one that excites you most!
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <div className="mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                </div>
+                <p className="text-slate-600 mb-4">
+                  No suggestions available yet. Generate ideas for what could happen next in your story!
+                </p>
+                {onGenerateOutcomes && (
+                  <button
+                    onClick={onGenerateOutcomes}
+                    disabled={isGenerating}
+                    className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Generating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                        </svg>
+                        <span>Generate Suggestions</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
