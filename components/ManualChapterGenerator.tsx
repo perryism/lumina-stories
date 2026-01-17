@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Chapter, Character, ChapterOutcome, ForeshadowingNote } from '../types';
 import { getDefaultSystemPrompt } from '../services/aiService';
+import { getGenreSystemPrompt } from '../services/genreLoader';
 
 interface ManualChapterGeneratorProps {
   title: string;
@@ -61,11 +62,20 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
 
   // Update local system prompt when prop changes or when it's empty
   useEffect(() => {
-    if (systemPrompt) {
-      setLocalSystemPrompt(systemPrompt);
-    } else if (!localSystemPrompt) {
-      setLocalSystemPrompt(getDefaultSystemPrompt(genre));
-    }
+    const updatePrompt = async () => {
+      if (systemPrompt) {
+        setLocalSystemPrompt(systemPrompt);
+      } else if (!localSystemPrompt) {
+        try {
+          const prompt = await getGenreSystemPrompt(genre);
+          setLocalSystemPrompt(prompt);
+        } catch (error) {
+          console.error('Failed to load genre system prompt:', error);
+          setLocalSystemPrompt(getDefaultSystemPrompt(genre));
+        }
+      }
+    };
+    updatePrompt();
   }, [systemPrompt, genre]);
 
   const handleSystemPromptChange = (value: string) => {

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Character, ReadingLevel, StoryTemplate } from '../types';
 import { getDefaultSystemPrompt } from '../services/aiService';
 import { saveTemplateToTemplatesFolder, saveTemplateToStorage } from '../utils/templateService';
+import { getGenreNames, getGenreSystemPrompt } from '../services/genreLoader';
 
 interface StoryFormProps {
   onStart: (data: { title: string; genre: string; numChapters: number; readingLevel: ReadingLevel; characters: Character[]; initialIdea: string; systemPrompt?: string }) => void;
@@ -22,10 +23,35 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading, initia
     { id: '1', name: '', attributes: '' }
   ]);
   const [templateMessage, setTemplateMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [genres, setGenres] = useState<string[]>([]);
+
+  // Load genres from config on mount
+  useEffect(() => {
+    const loadGenres = async () => {
+      try {
+        const genreNames = await getGenreNames();
+        setGenres(genreNames);
+      } catch (error) {
+        console.error('Failed to load genres:', error);
+        // Fallback to default genres if loading fails
+        setGenres(['Fantasy', 'Sci-Fi', 'Mystery', 'Romance', 'Horror', 'Thriller', 'Historical', 'Adventure']);
+      }
+    };
+    loadGenres();
+  }, []);
 
   // Update system prompt when genre changes
   useEffect(() => {
-    setSystemPrompt(getDefaultSystemPrompt(genre));
+    const updatePrompt = async () => {
+      try {
+        const prompt = await getGenreSystemPrompt(genre);
+        setSystemPrompt(prompt);
+      } catch (error) {
+        console.error('Failed to load genre system prompt:', error);
+        setSystemPrompt(getDefaultSystemPrompt(genre));
+      }
+    };
+    updatePrompt();
   }, [genre]);
 
   // Load initial template if provided
@@ -105,10 +131,6 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading, initia
       setTimeout(() => setTemplateMessage(null), 8000);
     }
   };
-
-
-
-  const genres = ['Fantasy', 'Sci-Fi', 'Mystery', 'Romance', 'Horror', 'Thriller', 'Historical', 'Adventure'];
 
   const readingLevels: { value: ReadingLevel; label: string; description: string }[] = [
     { value: 'elementary', label: 'Elementary (Ages 6-10)', description: 'Simple vocabulary, short sentences, clear concepts' },
