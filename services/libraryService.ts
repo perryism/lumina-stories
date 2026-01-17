@@ -78,6 +78,13 @@ const storyToYAML = (story: SavedStory): string => {
         // Add an empty line to maintain proper YAML structure when content is empty
         lines.push('');
       }
+      // Add acceptance criteria if it exists
+      if (chapter.acceptanceCriteria) {
+        lines.push(`    acceptanceCriteria: |`);
+        chapter.acceptanceCriteria.split('\n').forEach(line => {
+          lines.push(`      ${line}`);
+        });
+      }
       if (chapter.foreshadowing && chapter.foreshadowing.length > 0) {
         lines.push(`    foreshadowing:`);
         chapter.foreshadowing.forEach(f => {
@@ -116,7 +123,8 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
   const story: any = {
     state: {
       characters: [],
-      outline: []
+      outline: [],
+      foreshadowingNotes: []
     }
   };
 

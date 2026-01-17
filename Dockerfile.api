@@ -1,0 +1,27 @@
+# Dockerfile for API Server (Express.js backend)
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy server file
+COPY server.js ./
+
+# Create directories for templates and libraries
+RUN mkdir -p templates libraries
+
+# Expose API port
+EXPOSE 3001
+
+# Set environment variable
+ENV PORT=3001
+
+# Start the API server
+CMD ["node", "server.js"]
+

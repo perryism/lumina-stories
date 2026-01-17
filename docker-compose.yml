@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # API Server (Express.js backend for template/story management)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: lumina-api
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./templates:/app/templates
+      - ./libraries:/app/libraries
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    restart: unless-stopped
+    networks:
+      - lumina-network
+
+  # Frontend Server (Vite React app)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: lumina-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./templates:/app/templates
+      - ./libraries:/app/libraries
+      - ./genres.yaml:/app/genres.yaml
+    environment:
+      - NODE_ENV=production
+      - AI_PROVIDER=${AI_PROVIDER:-gemini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - API_KEY=${API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LOCAL_API_URL=${LOCAL_API_URL:-http://localhost:1234/v1}
+      - LOCAL_API_KEY=${LOCAL_API_KEY:-not-needed}
+      - LOCAL_MODEL=${LOCAL_MODEL:-local-model}
+      - LOCAL_MODEL_OUTLINE=${LOCAL_MODEL_OUTLINE}
+      - LOCAL_MODEL_CHAPTER=${LOCAL_MODEL_CHAPTER}
+      - LOCAL_MODEL_SUMMARY=${LOCAL_MODEL_SUMMARY}
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - lumina-network
+
+networks:
+  lumina-network:
+    driver: bridge
+

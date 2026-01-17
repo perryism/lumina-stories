@@ -12,6 +12,45 @@ import { StoryState, Chapter, Character, ReadingLevel, ChapterOutcome, StoryTemp
 import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt, regenerateChapterContent, generateNextChapterOutcomes, validateChapterContent } from './services/aiService';
 import { saveStory, loadStory } from './services/libraryService';
 
+// Helper function to add foreshadowing notes to target chapter's acceptance criteria
+const addForeshadowingToAcceptanceCriteria = (outline: Chapter[], foreshadowingNotes: ForeshadowingNote[]): Chapter[] => {
+  return outline.map((chapter, index) => {
+    const chapterNumber = index + 1;
+
+    // Find notes that should be revealed in this chapter
+    const notesToReveal = foreshadowingNotes.filter(
+      note => note.targetChapterId === chapterNumber
+    );
+
+    if (notesToReveal.length === 0) {
+      return chapter;
+    }
+
+    // Build foreshadowing criteria text
+    const foreshadowingCriteria = notesToReveal
+      .map(note => `- MUST reveal: ${note.revealDescription}`)
+      .join('\n');
+
+    // Check if acceptance criteria already contains foreshadowing reveals
+    const existingCriteria = chapter.acceptanceCriteria || '';
+
+    // Remove old foreshadowing section if it exists
+    const criteriaWithoutForeshadowing = existingCriteria
+      .replace(/\n*Foreshadowing Reveals:\n[\s\S]*?(?=\n\n|$)/g, '')
+      .trim();
+
+    // Add new foreshadowing section
+    const updatedCriteria = criteriaWithoutForeshadowing
+      ? `${criteriaWithoutForeshadowing}\n\nForeshadowing Reveals:\n${foreshadowingCriteria}`
+      : `Foreshadowing Reveals:\n${foreshadowingCriteria}`;
+
+    return {
+      ...chapter,
+      acceptanceCriteria: updatedCriteria,
+    };
+  });
+};
+
 const App: React.FC = () => {
   const [state, setState] = useState<StoryState>({
     title: '',
@@ -70,28 +109,43 @@ const App: React.FC = () => {
       id: `foreshadow-${Date.now()}-${Math.random()}`,
       createdAt: Date.now(),
     };
-    setState(prev => ({
-      ...prev,
-      foreshadowingNotes: [...(prev.foreshadowingNotes || []), newNote],
-    }));
+    setState(prev => {
+      const updatedNotes = [...(prev.foreshadowingNotes || []), newNote];
+      const updatedOutline = addForeshadowingToAcceptanceCriteria(prev.outline, updatedNotes);
+      return {
+        ...prev,
+        foreshadowingNotes: updatedNotes,
+        outline: updatedOutline,
+      };
+    });
   };
 
   const handleDeleteForeshadowingNote = (noteId: string) => {
-    setState(prev => ({
-      ...prev,
-      foreshadowingNotes: (prev.foreshadowingNotes || []).filter(note => note.id !== noteId),
-    }));
+    setState(prev => {
+      const updatedNotes = (prev.foreshadowingNotes || []).filter(note => note.id !== noteId);
+      const updatedOutline = addForeshadowingToAcceptanceCriteria(prev.outline, updatedNotes);
+      return {
+        ...prev,
+        foreshadowingNotes: updatedNotes,
+        outline: updatedOutline,
+      };
+    });
   };
 
   const handleUpdateForeshadowingNote = (noteId: string, updatedNote: Omit<ForeshadowingNote, 'id' | 'createdAt'>) => {
-    setState(prev => ({
-      ...prev,
-      foreshadowingNotes: (prev.foreshadowingNotes || []).map(note =>
+    setState(prev => {
+      const updatedNotes = (prev.foreshadowingNotes || []).map(note =>
         note.id === noteId
           ? { ...note, ...updatedNote }
           : note
-      ),
-    }));
+      );
+      const updatedOutline = addForeshadowingToAcceptanceCriteria(prev.outline, updatedNotes);
+      return {
+        ...prev,
+        foreshadowingNotes: updatedNotes,
+        outline: updatedOutline,
+      };
+    });
   };
 
   const handleConfirmOutline = () => {
@@ -235,7 +289,8 @@ const App: React.FC = () => {
             state.characters,
             completedChaptersForOutcomes,
             state.readingLevel,
-            state.systemPrompt
+            state.systemPrompt,
+            state.foreshadowingNotes
           );
           setChapterOutcomes(outcomes);
         } catch (err: any) {
@@ -279,10 +334,18 @@ const App: React.FC = () => {
       status: 'pending',
     };
 
-    setState(prev => ({
-      ...prev,
-      outline: [...prev.outline, newChapter],
-    }));
+    setState(prev => {
+      const updatedOutline = [...prev.outline, newChapter];
+      // Apply foreshadowing to acceptance criteria for the new outline
+      const outlineWithForeshadowing = addForeshadowingToAcceptanceCriteria(
+        updatedOutline,
+        prev.foreshadowingNotes || []
+      );
+      return {
+        ...prev,
+        outline: outlineWithForeshadowing,
+      };
+    });
 
     // Clear outcomes after selection
     setChapterOutcomes([]);
@@ -455,7 +518,16 @@ const App: React.FC = () => {
   const handleLoadStory = async (storyId: string) => {
     const loadedState = await loadStory(storyId);
     if (loadedState) {
-      setState(loadedState);
+      // Apply foreshadowing to acceptance criteria after loading
+      const outlineWithForeshadowing = addForeshadowingToAcceptanceCriteria(
+        loadedState.outline,
+        loadedState.foreshadowingNotes || []
+      );
+
+      setState({
+        ...loadedState,
+        outline: outlineWithForeshadowing,
+      });
       setCurrentStoryId(storyId);
       setError(null);
       setShowLibrary(false);

@@ -1,0 +1,25 @@
+# Dockerfile for Frontend (Vite React app)
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including dev dependencies for Vite)
+RUN npm ci
+
+# Copy source files
+COPY . .
+
+# Build the app (optional - comment out if you want dev mode)
+# RUN npm run build
+
+# Expose frontend port
+EXPOSE 3000
+
+# Start the development server
+# For production, use: CMD ["npm", "run", "preview"]
+CMD ["npm", "run", "dev"]
+

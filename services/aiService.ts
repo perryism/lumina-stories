@@ -629,7 +629,8 @@ export const generateNextChapterOutcomes = async (
   characters: Character[],
   completedChapters: Chapter[],
   readingLevel?: ReadingLevel,
-  customSystemPrompt?: string
+  customSystemPrompt?: string,
+  foreshadowingNotes?: ForeshadowingNote[]
 ): Promise<ChapterOutcome[]> => {
   const charactersPrompt = characters
     .map((c) => `${c.name}: ${c.attributes}`)
@@ -648,6 +649,43 @@ export const generateNextChapterOutcomes = async (
       ).join("\n\n")
     : "This is the beginning of the story.";
 
+  // Build foreshadowing instructions for the next chapter
+  const nextChapterNumber = completedChapters.length + 1;
+  let foreshadowingInstructions = '';
+
+  if (foreshadowingNotes && foreshadowingNotes.length > 0) {
+    // Find notes that should be foreshadowed in the next chapter (target chapter is later)
+    const notesToForeshadow = foreshadowingNotes.filter(
+      note => note.targetChapterId > nextChapterNumber
+    );
+
+    // Find notes that should be revealed in the next chapter
+    const notesToReveal = foreshadowingNotes.filter(
+      note => note.targetChapterId === nextChapterNumber
+    );
+
+    if (notesToForeshadow.length > 0 || notesToReveal.length > 0) {
+      foreshadowingInstructions = '\n\nIMPORTANT - Foreshadowing Requirements:';
+
+      if (notesToForeshadow.length > 0) {
+        foreshadowingInstructions += '\nThe next chapter should include subtle hints about:';
+        notesToForeshadow.forEach(note => {
+          foreshadowingInstructions += `\n- "${note.revealDescription}" (will be revealed in Chapter ${note.targetChapterId})`;
+          foreshadowingInstructions += `\n  Suggestion: ${note.foreshadowingHint}`;
+        });
+      }
+
+      if (notesToReveal.length > 0) {
+        foreshadowingInstructions += '\nThe next chapter MUST reveal:';
+        notesToReveal.forEach(note => {
+          foreshadowingInstructions += `\n- ${note.revealDescription}`;
+        });
+      }
+
+      foreshadowingInstructions += '\n\nEnsure ALL three outcomes incorporate these foreshadowing requirements appropriately.';
+    }
+  }
+
   const prompt = `
     You are helping to write a ${genre} story titled "${storyTitle}" for ${readingLevelNote}.
 
@@ -655,7 +693,7 @@ export const generateNextChapterOutcomes = async (
     ${charactersPrompt}
 
     Story so far:
-    ${storyContext}
+    ${storyContext}${foreshadowingInstructions}
 
     Generate THREE distinct and compelling possible directions for the next chapter. Each outcome should:
     - Offer a unique narrative direction or plot development
