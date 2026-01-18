@@ -614,9 +614,13 @@ ${userFeedback}
 
 Please rewrite the chapter taking the user's feedback into account. Make sure to:
 1. Address all points mentioned in the feedback
-2. Maintain consistency with the story's tone, style, and previous chapters
-3. Keep the core plot points from the chapter summary
-4. Improve upon the previous version based on the specific feedback provided
+2. MAINTAIN FULL CONTINUITY with previous chapters - do not repeat events, revelations, or discoveries that already occurred
+3. Characters should remember and build upon what they learned in previous chapters
+4. Keep the core plot points from the chapter summary
+5. Maintain consistency with the story's tone, style, and established facts
+6. Improve upon the previous version based on the specific feedback provided
+
+CRITICAL: The previous chapters summary above contains everything that has already happened in the story. Do NOT repeat or contradict any of those events. Build upon them naturally while addressing the user's feedback.
 
 Generate the improved chapter content now:`;
 
@@ -624,7 +628,7 @@ Generate the improved chapter content now:`;
     const client = AI_PROVIDER === "local" ? localClient : openaiClient;
     const model = AI_PROVIDER === "local" ? MODELS.local.chapter : MODELS.openai.chapter;
 
-    const defaultSystemPrompt = `You are a professional fiction writer specializing in ${genre} stories. You are revising a chapter based on user feedback. Write engaging, vivid prose with strong character development and compelling narrative flow.`;
+    const defaultSystemPrompt = `You are a professional fiction writer specializing in ${genre} stories. You are revising a chapter based on user feedback while maintaining perfect continuity with previous chapters. Write engaging, vivid prose with strong character development and compelling narrative flow. CRITICAL: Never repeat events or revelations that already occurred in previous chapters. Characters must remember what they learned and experienced before.`;
     const systemPrompt = customSystemPrompt || defaultSystemPrompt;
 
     const response = await client.chat.completions.create({
