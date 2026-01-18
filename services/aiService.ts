@@ -346,9 +346,13 @@ CRITICAL CONTINUITY REQUIREMENTS:
 - DO NOT repeat events, revelations, or discoveries that already occurred in previous chapters
 - Characters should already know information that was revealed to them in previous chapters
 - Build upon and advance the story from where the previous chapter left off
+- CONTINUE developing any unresolved plot threads, conflicts, or questions from previous chapters
+- Address cliffhangers and open endings from the previous chapter
+- Progress character goals and motivations that were established but not yet achieved
 - Reference previous events naturally when relevant, but move the story forward
 - Maintain all established facts, character relationships, and world-building elements
-- If a character learned something or experienced something in a previous chapter, they remember it in this chapter` : "This is the first chapter - establish the story world and characters."}
+- If a character learned something or experienced something in a previous chapter, they remember it in this chapter
+- The story should flow naturally from the previous chapter's ending - pick up where it left off` : "This is the first chapter - establish the story world and characters."}
 
 Characters in this chapter:
 ${charactersPrompt}
@@ -379,7 +383,8 @@ export const generateChapterContent = async (
   const currentChapter = outline[chapterIndex];
   const selectedCharacterIds = currentChapter.characterIds;
 
-  const prompt = customPrompt || buildChapterPrompt(
+  // Always build the base prompt with previous chapters summary for context
+  const basePrompt = buildChapterPrompt(
     storyTitle,
     genre,
     characters,
@@ -390,6 +395,18 @@ export const generateChapterContent = async (
     readingLevel,
     foreshadowingNotes
   );
+
+  // If custom prompt is provided, append it to the base prompt to maintain continuity
+  const prompt = customPrompt
+    ? `${basePrompt}\n\nADDITIONAL INSTRUCTIONS:\n${customPrompt}\n\nGenerate the chapter content now, following both the base requirements above and these additional instructions:`
+    : basePrompt;
+
+  // Log summary usage for debugging
+  if (previousChaptersSummary) {
+    console.log(`[Chapter ${chapterIndex + 1}] Using previous chapters summary (${previousChaptersSummary.length} chars):\n${previousChaptersSummary.substring(0, 300)}...`);
+  } else {
+    console.log(`[Chapter ${chapterIndex + 1}] No previous chapters - this is the first chapter`);
+  }
 
   if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
     const client = AI_PROVIDER === "local" ? localClient : openaiClient;
@@ -446,8 +463,18 @@ export const summarizePreviousChapters = async (chapters: Chapter[]): Promise<st
 - Emotional arcs and conflicts (internal struggles, tensions between characters)
 - Any foreshadowing or setup for future events
 - Current state of affairs (where characters are, what they're doing, what problems they face)
+- **UNRESOLVED PLOT THREADS**: Questions raised but not answered, conflicts started but not resolved, goals set but not achieved
+- **CLIFFHANGERS AND OPEN ENDINGS**: How the last chapter ended, what's left hanging, what needs to happen next
+- **CHARACTER GOALS AND MOTIVATIONS**: What each character wants, what they're trying to accomplish, what obstacles they face
+- **PENDING DECISIONS OR ACTIONS**: Choices that need to be made, actions that were planned but not yet taken
 
-IMPORTANT: Be specific and detailed. Include character names, specific events, and exact revelations. The next chapter must build on these events without repeating or contradicting them.
+CRITICAL: The next chapter needs to CONTINUE the story from where it left off. Your summary must make it clear:
+1. What has been RESOLVED (so it's not repeated)
+2. What is UNRESOLVED (so it can be developed further)
+3. What the characters are CURRENTLY doing or planning to do
+4. What NEEDS TO HAPPEN NEXT for the story to progress logically
+
+Be specific and detailed. Include character names, specific events, exact revelations, and most importantly, what's still pending or unresolved. The next chapter must build on these events without repeating or contradicting them.
 
 Chapters to summarize:
 
@@ -462,7 +489,7 @@ ${textToSummarize}`;
       messages: [
         {
           role: "system",
-          content: "You are a professional story editor creating detailed chapter summaries. Your summaries must capture ALL important plot points, character developments, revelations, and story elements in detail. Be specific with names, events, and discoveries. These summaries are critical for maintaining story continuity and preventing contradictions or repetition in subsequent chapters.",
+          content: "You are a professional story editor creating detailed chapter summaries for story continuity. Your summaries must capture ALL important plot points, character developments, revelations, and story elements in detail. CRITICALLY, you must clearly distinguish between what has been RESOLVED and what remains UNRESOLVED. The next chapter writer needs to know what plot threads to continue, what questions to answer, and what conflicts to develop. Be specific with names, events, discoveries, and especially with unresolved plot threads, pending decisions, and cliffhangers. These summaries are critical for maintaining story continuity and ensuring the next chapter continues the story logically.",
         },
         { role: "user", content: prompt },
       ],
