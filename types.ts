@@ -18,6 +18,7 @@ export interface Chapter {
   title: string;
   summary: string;
   content?: string; // Optional - only present when chapter is generated
+  detailedSummary?: string; // Detailed summary generated from the full chapter content, includes unresolved events
   status: 'pending' | 'generating' | 'completed' | 'error';
   characterIds?: string[]; // IDs of characters participating in this chapter
   foreshadowingNotes?: ForeshadowingNote[]; // Notes for events that will be revealed in this chapter

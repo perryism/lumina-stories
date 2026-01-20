@@ -1,19 +1,49 @@
-# Unresolved Plot Threads and Story Continuity Enhancement
+# Story Continuity and Cohesion Fix
 
-## Issue
+## Issues Identified
+
+### 1. Summary Not Capturing Unresolved Plot Threads
 The summary of previous chapters wasn't explicitly capturing unresolved events, cliffhangers, and pending plot threads. This meant the next chapter might not naturally continue from where the previous chapter left off, leading to:
 - Dropped plot threads
 - Unaddressed cliffhangers
 - Story feeling disjointed or episodic rather than continuous
 - Character goals and motivations not being developed across chapters
 
-## Solution
-Enhanced both the `summarizePreviousChapters` function and the `buildChapterPrompt` function to explicitly capture and continue unresolved plot elements.
+### 2. Missing Content Validation
+The `summarizePreviousChapters` function assumed all chapters had content without checking, which could cause:
+- Runtime errors when accessing `content` on chapters without it
+- Empty or incomplete summaries
+- Silent failures that resulted in no context being passed to the next chapter
 
-## Changes Made
+### 3. Insufficient Emphasis on Continuity
+The prompts didn't emphasize strongly enough that chapters must continue from where the previous chapter ended, resulting in:
+- Chapters that felt like standalone stories
+- Repetition of events or revelations
+- Characters forgetting what happened in previous chapters
+- Lack of narrative flow between chapters
 
-### 1. Enhanced Summary Generation Prompt
-**File:** `services/aiService.ts` - `summarizePreviousChapters` function (lines 457-481)
+## Solutions Implemented
+
+### 1. Content Validation in Summary Generation
+**File:** `services/aiService.ts` - `summarizePreviousChapters` function (lines 448-465)
+
+**Added:**
+- Filter to ensure only chapters with actual content are summarized
+- Warning logging when no chapters with content are found
+- Early return if no valid chapters to summarize
+- Detailed logging of how many chapters are being summarized
+
+```typescript
+const chaptersWithContent = chapters.filter(c => c.content && c.content.trim().length > 0);
+
+if (chaptersWithContent.length === 0) {
+  console.warn('[summarizePreviousChapters] No chapters with content found!');
+  return "";
+}
+```
+
+### 2. Enhanced Summary Generation Prompt
+**File:** `services/aiService.ts` - `summarizePreviousChapters` function (lines 473-497)
 
 **Added explicit focus on:**
 - **UNRESOLVED PLOT THREADS**: Questions raised but not answered, conflicts started but not resolved, goals set but not achieved
@@ -30,8 +60,8 @@ CRITICAL: The next chapter needs to CONTINUE the story from where it left off. Y
 4. What NEEDS TO HAPPEN NEXT for the story to progress logically
 ```
 
-### 2. Enhanced System Prompt for Summaries
-**File:** `services/aiService.ts` (line 492)
+### 3. Enhanced System Prompt for Summaries
+**File:** `services/aiService.ts` (line 508)
 
 Changed from:
 > "Your summaries must capture ALL important plot points..."
@@ -39,14 +69,50 @@ Changed from:
 To:
 > "CRITICALLY, you must clearly distinguish between what has been RESOLVED and what remains UNRESOLVED. The next chapter writer needs to know what plot threads to continue, what questions to answer, and what conflicts to develop."
 
-### 3. Enhanced Chapter Generation Continuity Requirements
-**File:** `services/aiService.ts` - `buildChapterPrompt` function (lines 345-355)
+### 4. Dramatically Enhanced Chapter Generation Prompt
+**File:** `services/aiService.ts` - `buildChapterPrompt` function (lines 341-374)
 
-**Added new requirements:**
-- CONTINUE developing any unresolved plot threads, conflicts, or questions from previous chapters
-- Address cliffhangers and open endings from the previous chapter
-- Progress character goals and motivations that were established but not yet achieved
-- The story should flow naturally from the previous chapter's ending - pick up where it left off
+**Completely restructured the continuity requirements section:**
+- Added clear visual separators (`===`) around the previous chapters summary
+- Organized requirements into 5 numbered categories for clarity
+- Added ⚠️ warning emoji to draw attention to critical requirements
+- Made each requirement more specific and actionable
+
+**New structure:**
+1. **STORY CONTINUITY**: Continue from where previous chapter ended, don't repeat
+2. **UNRESOLVED PLOT THREADS**: Develop unresolved elements, address cliffhangers
+3. **CHARACTER CONTINUITY**: Characters remember everything, maintain relationships
+4. **WORLD-BUILDING CONTINUITY**: Maintain established facts and rules
+5. **NARRATIVE FLOW**: Flow naturally, pick up where story left off
+
+### 5. Enhanced System Prompt for Chapter Generation
+**File:** `services/aiService.ts` - `generateChapterContent` function (lines 442-452)
+
+**Added to system prompt:**
+```
+CRITICAL: When writing chapters that follow previous chapters, you MUST maintain perfect story continuity. This means:
+- Continue the story from where it left off - don't start fresh or repeat what already happened
+- Develop unresolved plot threads and conflicts from previous chapters
+- Characters remember and reference events from previous chapters
+- The narrative should flow seamlessly from the previous chapter's ending
+- Address any cliffhangers or open questions from previous chapters
+
+Your goal is to write a chapter that feels like a natural continuation of the story, not a standalone piece.
+```
+
+### 6. Comprehensive Logging for Debugging
+**Files:** `App.tsx` and `services/aiService.ts`
+
+**Added detailed logging at multiple points:**
+- When retrieving completed chapters (App.tsx lines 233-238, 451-458)
+- When generating summaries (aiService.ts lines 460-461, 509-512, 523-526)
+- When generating chapter content (aiService.ts lines 386-391)
+
+**Logs include:**
+- Number of completed chapters found
+- Chapter IDs, titles, and content lengths
+- Summary length and preview
+- Warnings when no content or summary is available
 
 ## How It Works Now
 
@@ -75,7 +141,7 @@ To:
 
 ### After (Enhanced Summary):
 > "Chapter 1: Sarah discovered a mysterious book in the library with strange symbols on the cover. She met an old librarian named Mr. Chen who seemed to recognize the book and looked alarmed, but he was interrupted before he could explain.
-> 
+>
 > **RESOLVED**: Sarah found the book, met Mr. Chen
 > **UNRESOLVED**: What the symbols mean, why Mr. Chen was alarmed, what he was about to tell Sarah
 > **CLIFFHANGER**: Sarah took the book home, planning to examine it tonight
@@ -90,10 +156,50 @@ To:
 ✅ **Logical Progression**: Story progresses logically from where it left off
 ✅ **No Dropped Threads**: Important plot elements aren't forgotten
 
+## How to Use the Logging to Debug
+
+When you generate chapters, check the browser console for these logs:
+
+1. **Chapter Generation Start:**
+   ```
+   [Chapter 2] Found 1 completed chapters before this one
+     - Chapter 1: "The Beginning" (2543 chars)
+   ```
+   ✅ This confirms the previous chapter has content
+
+2. **Summary Generation:**
+   ```
+   [summarizePreviousChapters] Summarizing 1 chapters with content
+   [Summary] Generated summary for 1 chapter(s) (1234 chars):
+   [Full summary text will be printed here]
+   ```
+   ✅ This shows the summary was generated successfully
+
+3. **Chapter Content Generation:**
+   ```
+   [generateChapterContent] Chapter 2: "The Journey Continues"
+   [generateChapterContent] Previous summary length: 1234 chars
+   [generateChapterContent] Previous summary preview: Sarah discovered a mysterious book...
+   ```
+   ✅ This confirms the summary is being passed to the chapter generator
+
+**If you see:**
+- `WARNING: No previous summary provided!` - The summary is empty
+- `No chapters with content found!` - Previous chapters don't have content
+- `Previous summary length: 0 chars` - Summary generation failed
+
 ## Files Modified
 
 - `services/aiService.ts`:
-  - Lines 457-481: Enhanced `summarizePreviousChapters` prompt with unresolved plot thread focus
-  - Line 492: Enhanced system prompt for summary generation
-  - Lines 345-355: Enhanced `buildChapterPrompt` continuity requirements
+  - Lines 448-465: Added content validation and logging to `summarizePreviousChapters`
+  - Lines 473-497: Enhanced summary prompt with unresolved plot thread focus
+  - Line 508: Enhanced system prompt for summary generation
+  - Lines 341-374: Dramatically enhanced `buildChapterPrompt` continuity requirements
+  - Lines 442-452: Enhanced system prompt for chapter generation
+  - Lines 386-391: Added logging to `generateChapterContent`
+  - Lines 509-512, 523-526: Enhanced summary logging
+
+- `App.tsx`:
+  - Lines 233-238: Added logging when generating next chapter
+  - Lines 451-458: Added logging when regenerating chapter
 

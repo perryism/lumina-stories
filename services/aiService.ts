@@ -274,7 +274,8 @@ export const buildChapterPrompt = (
   previousChaptersSummary: string,
   selectedCharacterIds?: string[],
   readingLevel?: ReadingLevel,
-  foreshadowingNotes?: ForeshadowingNote[]
+  foreshadowingNotes?: ForeshadowingNote[],
+  lastChapterContinuationSummary?: string
 ): string => {
   const currentChapter = outline[chapterIndex];
 
@@ -333,26 +334,64 @@ ${currentChapter.acceptanceCriteria}
 IMPORTANT: Ensure the chapter content explicitly addresses and meets all the acceptance criteria listed above.`;
   }
 
+  // Build the last chapter continuation section if available
+  let lastChapterSection = '';
+  if (lastChapterContinuationSummary) {
+    lastChapterSection = `
+
+🎯 === IMMEDIATE CONTINUATION FROM LAST CHAPTER ===
+${lastChapterContinuationSummary}
+=== END OF LAST CHAPTER CONTINUATION ===
+
+⚠️ CRITICAL: This chapter MUST pick up EXACTLY where the last chapter left off. Use the information above to:
+- Start from the exact situation described in "HOW THIS CHAPTER ENDED"
+- Continue any ongoing events and actions in progress
+- Address the unresolved questions and pending decisions
+- Follow through on any cliffhangers
+- Do what "MUST HAPPEN NEXT"
+
+`;
+  }
+
   return `Write Chapter ${chapterIndex + 1} of the ${genre} story titled "${storyTitle}".
 
 Chapter Title: ${currentChapter.title}
 Chapter Summary: ${currentChapter.summary}
 
 Overall Story Context:
-${previousChaptersSummary ? `Previous chapters summary:
+${previousChaptersSummary ? `=== PREVIOUS CHAPTERS SUMMARY ===
 ${previousChaptersSummary}
+=== END OF PREVIOUS CHAPTERS SUMMARY ===
+${lastChapterSection}
+⚠️ CRITICAL CONTINUITY REQUIREMENTS - READ CAREFULLY:
 
-CRITICAL CONTINUITY REQUIREMENTS:
-- DO NOT repeat events, revelations, or discoveries that already occurred in previous chapters
-- Characters should already know information that was revealed to them in previous chapters
-- Build upon and advance the story from where the previous chapter left off
-- CONTINUE developing any unresolved plot threads, conflicts, or questions from previous chapters
-- Address cliffhangers and open endings from the previous chapter
-- Progress character goals and motivations that were established but not yet achieved
-- Reference previous events naturally when relevant, but move the story forward
-- Maintain all established facts, character relationships, and world-building elements
-- If a character learned something or experienced something in a previous chapter, they remember it in this chapter
-- The story should flow naturally from the previous chapter's ending - pick up where it left off` : "This is the first chapter - establish the story world and characters."}
+1. STORY CONTINUITY:
+   - This chapter MUST continue directly from where the previous chapter ended
+   - DO NOT repeat events, revelations, or discoveries that already occurred
+   - Characters already know information that was revealed to them in previous chapters
+   - Reference the previous chapter's ending and build from there
+
+2. UNRESOLVED PLOT THREADS:
+   - The summary above lists UNRESOLVED plot threads, conflicts, and questions
+   - You MUST continue developing these unresolved elements in this chapter
+   - Address cliffhangers and open endings from the previous chapter
+   - Progress character goals and motivations that were established but not yet achieved
+
+3. CHARACTER CONTINUITY:
+   - Characters remember everything from previous chapters
+   - Maintain established character relationships and dynamics
+   - Characters should act consistently with their previous behavior and knowledge
+
+4. WORLD-BUILDING CONTINUITY:
+   - Maintain all established facts about the story world
+   - Keep supernatural/fantasy elements consistent with what has been established
+   - Don't contradict any rules or facts established in previous chapters
+
+5. NARRATIVE FLOW:
+   - The story should flow naturally from the previous chapter's ending
+   - Pick up where the story left off - don't jump ahead without explanation
+   - Reference previous events naturally when relevant
+   - Move the story forward - don't retread covered ground` : "This is the first chapter - establish the story world and characters."}
 
 Characters in this chapter:
 ${charactersPrompt}
@@ -383,6 +422,30 @@ export const generateChapterContent = async (
   const currentChapter = outline[chapterIndex];
   const selectedCharacterIds = currentChapter.characterIds;
 
+  console.log(`[generateChapterContent] Chapter ${chapterIndex + 1}: "${currentChapter.title}"`);
+  console.log(`[generateChapterContent] Previous summary length: ${previousChaptersSummary.length} chars`);
+  if (previousChaptersSummary.length > 0) {
+    console.log(`[generateChapterContent] Previous summary preview: ${previousChaptersSummary.substring(0, 200)}...`);
+  } else {
+    console.log(`[generateChapterContent] WARNING: No previous summary provided!`);
+  }
+
+  // Generate a special continuation summary for the last chapter (if not first chapter)
+  let lastChapterContinuationSummary = '';
+  if (chapterIndex > 0) {
+    const lastChapter = outline[chapterIndex - 1];
+    if (lastChapter && lastChapter.content && lastChapter.status === 'completed') {
+      console.log(`[generateChapterContent] Generating continuation summary for last chapter (Chapter ${lastChapter.id})...`);
+      try {
+        lastChapterContinuationSummary = await generateLastChapterContinuationSummary(lastChapter);
+        console.log(`[generateChapterContent] Last chapter continuation summary generated (${lastChapterContinuationSummary.length} chars)`);
+      } catch (error) {
+        console.error(`[generateChapterContent] Failed to generate last chapter continuation summary:`, error);
+        // Continue without it - we still have the general summary
+      }
+    }
+  }
+
   // Always build the base prompt with previous chapters summary for context
   const basePrompt = buildChapterPrompt(
     storyTitle,
@@ -393,7 +456,8 @@ export const generateChapterContent = async (
     previousChaptersSummary,
     selectedCharacterIds,
     readingLevel,
-    foreshadowingNotes
+    foreshadowingNotes,
+    lastChapterContinuationSummary
   );
 
   // If custom prompt is provided, append it to the base prompt to maintain continuity
@@ -412,7 +476,16 @@ export const generateChapterContent = async (
     const client = AI_PROVIDER === "local" ? localClient : openaiClient;
     const model = AI_PROVIDER === "local" ? MODELS.local.chapter : MODELS.openai.chapter;
 
-    const defaultSystemPrompt = `You are a professional fiction writer specializing in ${genre} stories. Write engaging, vivid prose with strong character development and compelling narrative flow.`;
+    const defaultSystemPrompt = `You are a professional fiction writer specializing in ${genre} stories. Write engaging, vivid prose with strong character development and compelling narrative flow.
+
+CRITICAL: When writing chapters that follow previous chapters, you MUST maintain perfect story continuity. This means:
+- Continue the story from where it left off - don't start fresh or repeat what already happened
+- Develop unresolved plot threads and conflicts from previous chapters
+- Characters remember and reference events from previous chapters
+- The narrative should flow seamlessly from the previous chapter's ending
+- Address any cliffhangers or open questions from previous chapters
+
+Your goal is to write a chapter that feels like a natural continuation of the story, not a standalone piece.`;
     const systemPrompt = customSystemPrompt || defaultSystemPrompt;
 
     const response = await client.chat.completions.create({
@@ -445,16 +518,268 @@ export const generateChapterContent = async (
   }
 };
 
+// Generate a continuation-focused summary of the last chapter to help write the next one
+export const generateLastChapterContinuationSummary = async (chapter: Chapter): Promise<string> => {
+  if (!chapter.content) {
+    console.log('[generateLastChapterContinuationSummary] No content to summarize');
+    return '';
+  }
+
+  console.log(`[generateLastChapterContinuationSummary] Generating continuation summary for Chapter ${chapter.id}: "${chapter.title}"`);
+
+  const prompt = `You are analyzing the LAST chapter of a story to help write the NEXT chapter. Focus on continuity and what needs to happen next.
+
+CHAPTER TITLE: ${chapter.title}
+
+CHAPTER CONTENT:
+${chapter.content}
+
+Generate a focused summary that helps the next chapter continue seamlessly. Include:
+
+### **1. HOW THIS CHAPTER ENDED**
+Describe the exact situation at the end of this chapter:
+- Where are the characters physically?
+- What were they doing in the final scene?
+- What was the emotional state/mood?
+- What was the last thing that happened?
+
+### **2. ONGOING EVENTS & ACTIONS IN PROGRESS**
+List any events, conversations, or actions that were happening but NOT completed:
+- Conversations that were interrupted or ongoing
+- Actions that were started but not finished
+- Situations that are still developing
+- Immediate dangers or tensions that are active
+
+### **3. UNRESOLVED QUESTIONS & MYSTERIES**
+List questions that were raised but NOT answered:
+- Questions asked by characters that weren't answered
+- Mysteries introduced but not solved
+- Information hinted at but not revealed
+- Suspicions or theories not yet confirmed
+
+### **4. PENDING DECISIONS & COMMITMENTS**
+List what characters need to do or decide next:
+- Decisions that need to be made
+- Plans that were made but not executed
+- Promises or commitments not yet fulfilled
+- Goals stated but not achieved
+
+### **5. CLIFFHANGERS & HOOKS**
+Identify any cliffhangers or dramatic moments that need immediate follow-up:
+- Sudden revelations or discoveries at chapter end
+- Dramatic arrivals or departures
+- Threats or dangers that just appeared
+- Emotional moments that need resolution
+
+### **6. WHAT MUST HAPPEN NEXT**
+Based on the chapter ending, what logically needs to happen in the next chapter:
+- Immediate next actions
+- Conversations that need to continue
+- Situations that need to be addressed
+- Natural story progression from this point
+
+Be specific and concrete. The next chapter writer needs to know EXACTLY where to pick up the story.`;
+
+  try {
+    if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
+      const client = AI_PROVIDER === "local" ? localClient : openaiClient;
+      const model = AI_PROVIDER === "local" ? MODELS.local.summary : MODELS.openai.summary;
+
+      const response = await client.chat.completions.create({
+        model: model,
+        messages: [
+          {
+            role: "system",
+            content: "You are a story continuity specialist. Your job is to analyze how a chapter ends and identify exactly what needs to happen next to maintain seamless story flow."
+          },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.3,
+      });
+
+      const summary = response.choices[0].message.content || '';
+      console.log(`[generateLastChapterContinuationSummary] Generated continuation summary length: ${summary.length} chars`);
+      return summary;
+    } else {
+      // Gemini implementation
+      const response = await geminiClient.models.generateContent({
+        model: MODELS.gemini.summary,
+        contents: prompt,
+        config: {
+          temperature: 0.3,
+        },
+      });
+
+      const summary = response.text || '';
+      console.log(`[generateLastChapterContinuationSummary] Generated continuation summary length: ${summary.length} chars`);
+      return summary;
+    }
+  } catch (error) {
+    console.error('[generateLastChapterContinuationSummary] Error:', error);
+    throw error;
+  }
+};
+
+// Generate a detailed summary of a single chapter from its full content
+export const generateDetailedChapterSummary = async (chapter: Chapter): Promise<string> => {
+  if (!chapter.content) {
+    console.log('[generateDetailedChapterSummary] No content to summarize');
+    return '';
+  }
+
+  console.log(`[generateDetailedChapterSummary] Generating detailed summary for Chapter ${chapter.id}: "${chapter.title}"`);
+  console.log(`[generateDetailedChapterSummary] Full content length: ${chapter.content.length} chars`);
+
+  const prompt = `You are analyzing a chapter from a story to create a comprehensive summary that will help maintain continuity in future chapters.
+
+CHAPTER TITLE: ${chapter.title}
+
+CHAPTER CONTENT (FULL):
+${chapter.content}
+
+Generate a detailed summary that includes:
+
+### **1. MAJOR EVENTS AND PLOT DEVELOPMENTS**
+List all significant events that occurred in this chapter in chronological order.
+
+### **2. CHARACTER INTERACTIONS AND RELATIONSHIPS**
+Describe how characters interacted, what they learned about each other, and how relationships changed.
+
+### **3. IMPORTANT REVELATIONS OR DISCOVERIES**
+List all new information revealed to characters or readers.
+
+### **4. SUPERNATURAL/FANTASY/SPECIAL ELEMENTS**
+Document any magical, supernatural, or genre-specific elements introduced or used.
+
+### **5. EMOTIONAL ARCS AND CONFLICTS**
+Describe character emotional states, internal conflicts, and how they evolved.
+
+### **6. CURRENT STATE OF AFFAIRS**
+Describe where characters are, what they're doing, and the immediate situation at chapter end.
+
+### **7. RESOLVED ELEMENTS**
+List plot threads, questions, or conflicts that were RESOLVED in this chapter.
+
+### **8. UNRESOLVED ELEMENTS (CRITICAL FOR NEXT CHAPTER)**
+List all:
+- Unanswered questions
+- Pending decisions or actions
+- Cliffhangers or open endings
+- Goals not yet achieved
+- Conflicts not yet resolved
+- Promises or commitments made but not fulfilled
+
+### **9. CHARACTER KNOWLEDGE STATE**
+For each major character, list:
+- What they NOW KNOW (learned in this chapter)
+- What they STILL DON'T KNOW (but reader might know)
+- What they BELIEVE (that may or may not be true)
+
+### **10. CRITICAL CONTINUITY NOTES**
+List specific facts, details, or constraints that MUST be maintained in future chapters (e.g., injuries, time of day, weather, locations, promises made, deadlines established).
+
+Be thorough and specific. This summary will be used to ensure the next chapter continues seamlessly from where this one ended.`;
+
+  try {
+    if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
+      const client = AI_PROVIDER === "local" ? localClient : openaiClient;
+      const model = AI_PROVIDER === "local" ? MODELS.local.summary : MODELS.openai.summary;
+
+      const response = await client.chat.completions.create({
+        model: model,
+        messages: [
+          {
+            role: "system",
+            content: "You are a professional story analyst specializing in maintaining narrative continuity. Generate comprehensive, detailed summaries that capture all important information for future chapters."
+          },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.3,
+      });
+
+      const summary = response.choices[0].message.content || '';
+      console.log(`[generateDetailedChapterSummary] Generated summary length: ${summary.length} chars`);
+      return summary;
+    } else {
+      // Gemini implementation
+      const response = await geminiClient.models.generateContent({
+        model: MODELS.gemini.summary,
+        contents: prompt,
+        config: {
+          temperature: 0.3,
+        },
+      });
+
+      const summary = response.text || '';
+      console.log(`[generateDetailedChapterSummary] Generated summary length: ${summary.length} chars`);
+      return summary;
+    }
+  } catch (error) {
+    console.error('[generateDetailedChapterSummary] Error:', error);
+    throw error;
+  }
+};
+
 export const summarizePreviousChapters = async (chapters: Chapter[]): Promise<string> => {
   if (chapters.length === 0) return "";
 
-  // Include more content from each chapter for better context
-  // Use up to 2000 characters to capture key plot points and character developments
-  const textToSummarize = chapters
-    .map((c) => `Chapter ${c.id}: ${c.title}\n${c.content.substring(0, 2000)}...`)
-    .join("\n\n");
+  // Filter out chapters without content and log warning
+  const chaptersWithContent = chapters.filter(c => c.content && c.content.trim().length > 0);
 
-  const prompt = `Summarize the key plot points, character developments, and important story elements in these chapters. This summary will be used to generate the next chapter, so it's critical to capture everything important. Focus on:
+  if (chaptersWithContent.length === 0) {
+    console.warn('[summarizePreviousChapters] No chapters with content found!');
+    return "";
+  }
+
+  console.log(`[summarizePreviousChapters] Processing ${chaptersWithContent.length} chapters with content`);
+
+  // Use detailed summaries if available, otherwise generate them on-the-fly
+  // This allows us to accumulate comprehensive summaries as the story progresses
+  const summaries: string[] = [];
+
+  for (const chapter of chaptersWithContent) {
+    if (chapter.detailedSummary) {
+      console.log(`[summarizePreviousChapters] Using existing detailed summary for Chapter ${chapter.id}`);
+      summaries.push(`=== CHAPTER ${chapter.id}: ${chapter.title} ===\n${chapter.detailedSummary}`);
+    } else {
+      console.log(`[summarizePreviousChapters] No detailed summary found for Chapter ${chapter.id}, generating now...`);
+      // Generate detailed summary if it doesn't exist
+      try {
+        const detailedSummary = await generateDetailedChapterSummary(chapter);
+        // Update the chapter object with the new summary (will be persisted by caller)
+        chapter.detailedSummary = detailedSummary;
+        summaries.push(`=== CHAPTER ${chapter.id}: ${chapter.title} ===\n${detailedSummary}`);
+        console.log(`[summarizePreviousChapters] Generated and stored detailed summary for Chapter ${chapter.id} (${detailedSummary.length} chars)`);
+      } catch (error) {
+        console.error(`[summarizePreviousChapters] Failed to generate detailed summary for Chapter ${chapter.id}:`, error);
+        // Fallback to using full content if summary generation fails
+        console.log(`[summarizePreviousChapters] Falling back to full content for Chapter ${chapter.id}`);
+        summaries.push(`=== CHAPTER ${chapter.id}: ${chapter.title} ===\n${chapter.content}`);
+      }
+    }
+  }
+
+  const textToSummarize = summaries.join("\n\n");
+
+  const hasDetailedSummaries = chaptersWithContent.every(c => c.detailedSummary);
+
+  const prompt = hasDetailedSummaries
+    ? `You are combining detailed chapter summaries into a comprehensive story summary for generating the next chapter.
+
+The following are detailed summaries of previous chapters. Combine them into a single, cohesive summary that:
+
+1. Maintains all critical information from each chapter
+2. Clearly shows the progression of events across chapters
+3. Highlights connections between chapters
+4. Emphasizes UNRESOLVED elements that need to be addressed in the next chapter
+5. Shows the current state of each character's knowledge and goals
+
+PREVIOUS CHAPTER SUMMARIES:
+
+${textToSummarize}
+
+Create a comprehensive summary that preserves all important details while showing how the story has progressed. Make sure to clearly identify what is RESOLVED vs UNRESOLVED across all chapters.`
+    : `Summarize the key plot points, character developments, and important story elements in these chapters. This summary will be used to generate the next chapter, so it's critical to capture everything important. Focus on:
 
 - Major events and plot developments (what actually happened)
 - Character interactions and relationships (who met, what they discussed, how they feel about each other)
@@ -473,6 +798,11 @@ CRITICAL: The next chapter needs to CONTINUE the story from where it left off. Y
 2. What is UNRESOLVED (so it can be developed further)
 3. What the characters are CURRENTLY doing or planning to do
 4. What NEEDS TO HAPPEN NEXT for the story to progress logically
+
+IMPORTANT DISTINCTION - Narrator Knowledge vs Character Knowledge:
+- If a question is asked but NOT answered in dialogue, it is UNRESOLVED even if the narrator reveals the answer
+- Example: "What is your name?" he asked the cat named Fluffy. → The READER knows the name is Fluffy, but the CHARACTER doesn't know yet because the cat hasn't answered. This is UNRESOLVED.
+- Only mark something as RESOLVED if the characters in the story actually learned it through dialogue or action
 
 Be specific and detailed. Include character names, specific events, exact revelations, and most importantly, what's still pending or unresolved. The next chapter must build on these events without repeating or contradicting them.
 
@@ -497,7 +827,8 @@ ${textToSummarize}`;
     });
 
     const summary = response.choices[0].message.content || "";
-    console.log(`[Summary] Generated summary for ${chapters.length} chapter(s):\n${summary.substring(0, 500)}...`);
+    console.log(`[Summary] Generated summary for ${chaptersWithContent.length} chapter(s) (${summary.length} chars):`);
+    console.log(summary);
     return summary;
   } else {
     // Gemini implementation
@@ -510,7 +841,8 @@ ${textToSummarize}`;
     });
 
     const summary = response.text || "";
-    console.log(`[Summary] Generated summary for ${chapters.length} chapter(s):\n${summary.substring(0, 500)}...`);
+    console.log(`[Summary] Generated summary for ${chaptersWithContent.length} chapter(s) (${summary.length} chars):`);
+    console.log(summary);
     return summary;
   }
 };
@@ -615,6 +947,26 @@ export const regenerateChapterContent = async (
   const currentChapter = outline[chapterIndex];
   const selectedCharacterIds = currentChapter.characterIds;
 
+  console.log(`[regenerateChapterContent] Regenerating Chapter ${chapterIndex + 1}: "${currentChapter.title}"`);
+  console.log(`[regenerateChapterContent] Previous summary length: ${previousChaptersSummary.length} chars`);
+  console.log(`[regenerateChapterContent] User feedback: ${userFeedback.substring(0, 100)}...`);
+
+  // Generate a special continuation summary for the last chapter (if not first chapter)
+  let lastChapterContinuationSummary = '';
+  if (chapterIndex > 0) {
+    const lastChapter = outline[chapterIndex - 1];
+    if (lastChapter && lastChapter.content && lastChapter.status === 'completed') {
+      console.log(`[regenerateChapterContent] Generating continuation summary for last chapter (Chapter ${lastChapter.id})...`);
+      try {
+        lastChapterContinuationSummary = await generateLastChapterContinuationSummary(lastChapter);
+        console.log(`[regenerateChapterContent] Last chapter continuation summary generated (${lastChapterContinuationSummary.length} chars)`);
+      } catch (error) {
+        console.error(`[regenerateChapterContent] Failed to generate last chapter continuation summary:`, error);
+        // Continue without it - we still have the general summary
+      }
+    }
+  }
+
   // Build the base prompt similar to the original generation
   const basePrompt = buildChapterPrompt(
     storyTitle,
@@ -625,7 +977,8 @@ export const regenerateChapterContent = async (
     previousChaptersSummary,
     selectedCharacterIds,
     readingLevel,
-    foreshadowingNotes
+    foreshadowingNotes,
+    lastChapterContinuationSummary
   );
 
   // Add the user feedback and regeneration instructions

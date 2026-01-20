@@ -9,7 +9,7 @@ import { TemplateBrowser } from './components/TemplateBrowser';
 import { ForeshadowingManager } from './components/ForeshadowingManager';
 import { Library } from './components/Library';
 import { StoryState, Chapter, Character, ReadingLevel, ChapterOutcome, StoryTemplate, ForeshadowingNote } from './types';
-import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt, regenerateChapterContent, generateNextChapterOutcomes, validateChapterContent, generateChapterSuggestions } from './services/aiService';
+import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt, regenerateChapterContent, generateNextChapterOutcomes, validateChapterContent, generateChapterSuggestions, generateDetailedChapterSummary } from './services/aiService';
 import { saveStory, loadStory } from './services/libraryService';
 
 // Helper function to add foreshadowing notes to target chapter's acceptance criteria
@@ -230,9 +230,28 @@ const App: React.FC = () => {
 
       // Get previous chapters summary
       const completedChapters = updatedOutline.slice(0, nextIndex).filter(c => c.status === 'completed');
+      console.log(`[Chapter ${nextIndex + 1}] Found ${completedChapters.length} completed chapters before this one`);
+
+      // Log chapter details for debugging
+      completedChapters.forEach((ch) => {
+        console.log(`  - Chapter ${ch.id}: "${ch.title}" (${ch.content ? ch.content.length : 0} chars)`);
+      });
+
       const previousSummary = completedChapters.length > 0
         ? await summarizePreviousChapters(completedChapters)
         : "";
+
+      // Update the outline with any newly generated detailed summaries
+      // (summarizePreviousChapters may have generated summaries for chapters that didn't have them)
+      completedChapters.forEach((ch) => {
+        const index = updatedOutline.findIndex(c => c.id === ch.id);
+        if (index !== -1 && ch.detailedSummary) {
+          updatedOutline[index] = { ...updatedOutline[index], detailedSummary: ch.detailedSummary };
+        }
+      });
+      setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+
+      console.log(`[Chapter ${nextIndex + 1}] Previous summary length: ${previousSummary.length} chars`);
 
       // Generate content with custom prompt if provided
       const content = await generateChapterContent(
@@ -297,6 +316,18 @@ const App: React.FC = () => {
       // Update with completed content
       updatedOutline[nextIndex] = { ...updatedOutline[nextIndex], content, status: 'completed' };
       setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+
+      // Generate detailed summary for this chapter
+      try {
+        console.log(`[Chapter ${nextIndex + 1}] Generating detailed summary...`);
+        const detailedSummary = await generateDetailedChapterSummary(updatedOutline[nextIndex]);
+        updatedOutline[nextIndex] = { ...updatedOutline[nextIndex], detailedSummary };
+        setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+        console.log(`[Chapter ${nextIndex + 1}] Detailed summary generated (${detailedSummary.length} chars)`);
+      } catch (err) {
+        console.error(`[Chapter ${nextIndex + 1}] Failed to generate detailed summary:`, err);
+        // Continue even if summary generation fails
+      }
 
       // In continuous mode, generate outcomes after completing a chapter
       if (isContinuousMode) {
@@ -439,9 +470,28 @@ const App: React.FC = () => {
 
       // Get previous chapters summary
       const completedChapters = updatedOutline.slice(0, chapterIndex).filter(c => c.status === 'completed');
+      console.log(`[Regenerate Chapter ${chapterIndex + 1}] Found ${completedChapters.length} completed chapters before this one`);
+
+      // Log chapter details for debugging
+      completedChapters.forEach((ch) => {
+        console.log(`  - Chapter ${ch.id}: "${ch.title}" (${ch.content ? ch.content.length : 0} chars)`);
+      });
+
       const previousSummary = completedChapters.length > 0
         ? await summarizePreviousChapters(completedChapters)
         : "";
+
+      // Update the outline with any newly generated detailed summaries
+      // (summarizePreviousChapters may have generated summaries for chapters that didn't have them)
+      completedChapters.forEach((ch) => {
+        const index = updatedOutline.findIndex(c => c.id === ch.id);
+        if (index !== -1 && ch.detailedSummary) {
+          updatedOutline[index] = { ...updatedOutline[index], detailedSummary: ch.detailedSummary };
+        }
+      });
+      setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+
+      console.log(`[Regenerate Chapter ${chapterIndex + 1}] Previous summary length: ${previousSummary.length} chars`);
 
       // Regenerate content with user feedback
       const content = await regenerateChapterContent(
@@ -460,6 +510,18 @@ const App: React.FC = () => {
       // Update with regenerated content
       updatedOutline[chapterIndex] = { ...updatedOutline[chapterIndex], content, status: 'completed' };
       setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+
+      // Generate detailed summary for the regenerated chapter
+      try {
+        console.log(`[Regenerate Chapter ${chapterIndex + 1}] Generating detailed summary...`);
+        const detailedSummary = await generateDetailedChapterSummary(updatedOutline[chapterIndex]);
+        updatedOutline[chapterIndex] = { ...updatedOutline[chapterIndex], detailedSummary };
+        setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+        console.log(`[Regenerate Chapter ${chapterIndex + 1}] Detailed summary generated (${detailedSummary.length} chars)`);
+      } catch (err) {
+        console.error(`[Regenerate Chapter ${chapterIndex + 1}] Failed to generate detailed summary:`, err);
+        // Continue even if summary generation fails
+      }
     } catch (err: any) {
       console.error("Chapter regeneration failed", err);
       const updatedOutline = [...state.outline];
@@ -512,9 +574,32 @@ const App: React.FC = () => {
           updatedOutline[i] = { ...updatedOutline[i], content, status: 'completed' };
           setState(prev => ({ ...prev, outline: [...updatedOutline] }));
 
+          // Generate detailed summary for this chapter
+          try {
+            console.log(`[Batch Chapter ${i + 1}] Generating detailed summary...`);
+            const detailedSummary = await generateDetailedChapterSummary(updatedOutline[i]);
+            updatedOutline[i] = { ...updatedOutline[i], detailedSummary };
+            setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+            console.log(`[Batch Chapter ${i + 1}] Detailed summary generated (${detailedSummary.length} chars)`);
+          } catch (err) {
+            console.error(`[Batch Chapter ${i + 1}] Failed to generate detailed summary:`, err);
+            // Continue even if summary generation fails
+          }
+
           // Update summary for next chapter
           if (i < state.outline.length - 1) {
-            previousSummary = await summarizePreviousChapters(updatedOutline.filter(c => c.status === 'completed'));
+            const completedChapters = updatedOutline.filter(c => c.status === 'completed');
+            previousSummary = await summarizePreviousChapters(completedChapters);
+
+            // Update the outline with any newly generated detailed summaries
+            // (summarizePreviousChapters may have generated summaries for chapters that didn't have them)
+            completedChapters.forEach((ch) => {
+              const index = updatedOutline.findIndex(c => c.id === ch.id);
+              if (index !== -1 && ch.detailedSummary) {
+                updatedOutline[index] = { ...updatedOutline[index], detailedSummary: ch.detailedSummary };
+              }
+            });
+            setState(prev => ({ ...prev, outline: [...updatedOutline] }));
           }
         } catch (err: any) {
           console.error("Chapter generation failed", err);

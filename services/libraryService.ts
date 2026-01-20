@@ -79,6 +79,13 @@ const storyToYAML = (story: SavedStory): string => {
         // Add an empty line to maintain proper YAML structure when content is empty
         lines.push('');
       }
+      // Add detailed summary if it exists
+      if (chapter.detailedSummary) {
+        lines.push(`    detailedSummary: |`);
+        chapter.detailedSummary.split('\n').forEach(line => {
+          lines.push(`      ${line}`);
+        });
+      }
       // Add acceptance criteria if it exists
       if (chapter.acceptanceCriteria) {
         lines.push(`    acceptanceCriteria: |`);
