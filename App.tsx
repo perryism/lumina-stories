@@ -942,7 +942,7 @@ const App: React.FC = () => {
       )}
 
       {state.currentStep === 'generating' && (
-        <div className="max-w-2xl mx-auto space-y-12 py-12">
+        <div className="max-w-6xl mx-auto space-y-8 py-12">
           <div className="text-center space-y-4">
             <h2 className="text-3xl font-bold text-slate-900">Your story is being written...</h2>
             <p className="text-slate-500">The Lumina engine is weaving your plot threads into a masterpiece.</p>
@@ -961,36 +961,78 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-4">
-            {state.outline.map((ch, idx) => (
-              <div key={ch.id} className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
-                idx === currentWritingIndex ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-white border-slate-100'
-              }`}>
-                <div className="flex items-center gap-4">
-                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                     ch.status === 'completed' ? 'bg-green-100 text-green-600' :
-                     ch.status === 'generating' ? 'bg-indigo-600 text-white animate-pulse' : 'bg-slate-100 text-slate-400'
-                   }`}>
-                     {ch.status === 'completed' ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                     ) : idx + 1}
-                   </div>
-                   <div>
-                     <h4 className="font-bold text-slate-800">{ch.title}</h4>
-                     <p className="text-xs text-slate-500">{ch.status === 'generating' ? 'Writing...' : ch.status === 'completed' ? 'Finished' : 'Waiting...'}</p>
-                   </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Chapter Status List */}
+            <div className="lg:col-span-1 space-y-4">
+              <h3 className="font-bold text-slate-900 text-lg mb-4">Chapters</h3>
+              {state.outline.map((ch, idx) => (
+                <div key={ch.id} className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
+                  idx === currentWritingIndex ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-white border-slate-100'
+                }`}>
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
+                     <div className={`w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${
+                       ch.status === 'completed' ? 'bg-green-100 text-green-600' :
+                       ch.status === 'generating' ? 'bg-indigo-600 text-white animate-pulse' : 'bg-slate-100 text-slate-400'
+                     }`}>
+                       {ch.status === 'completed' ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                       ) : idx + 1}
+                     </div>
+                     <div className="min-w-0 flex-1">
+                       <h4 className="font-bold text-slate-800 truncate">{ch.title}</h4>
+                       <p className="text-xs text-slate-500">{ch.status === 'generating' ? 'Writing...' : ch.status === 'completed' ? 'Finished' : 'Waiting...'}</p>
+                     </div>
+                  </div>
+                  {ch.status === 'generating' && (
+                    <div className="flex space-x-1 flex-shrink-0">
+                      <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                      <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                    </div>
+                  )}
                 </div>
-                {ch.status === 'generating' && (
-                  <div className="flex space-x-1">
-                    <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-                    <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                    <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+              ))}
+            </div>
+
+            {/* Chapter Content Preview */}
+            <div className="lg:col-span-2">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 max-h-[600px] overflow-y-auto">
+                {state.outline.filter(ch => ch.status === 'completed' && ch.content).length === 0 ? (
+                  <div className="text-center py-12 text-slate-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    <p className="text-lg font-medium">Waiting for first chapter...</p>
+                    <p className="text-sm mt-2">Content will appear here as chapters are completed</p>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    {state.outline.filter(ch => ch.status === 'completed' && ch.content).map((ch) => (
+                      <div key={ch.id} className="border-b border-slate-100 last:border-b-0 pb-8 last:pb-0">
+                        <div className="mb-4">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="text-sm font-bold text-indigo-600">Chapter {state.outline.findIndex(c => c.id === ch.id) + 1}</span>
+                            <span className="w-1.5 h-1.5 bg-slate-200 rounded-full"></span>
+                            <h3 className="text-xl font-bold text-slate-900">{ch.title}</h3>
+                          </div>
+                        </div>
+                        <div className="prose prose-slate prose-sm max-w-none">
+                          {ch.content.split('\n').map((para, i) => (
+                            para.trim() ? (
+                              <p key={i} className="mb-4 leading-relaxed text-slate-700">
+                                {para}
+                              </p>
+                            ) : <br key={i} />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-            ))}
+            </div>
           </div>
 
           {/* Save Progress Button */}
