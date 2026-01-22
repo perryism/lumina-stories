@@ -271,6 +271,40 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                           <p className="text-xs text-slate-500 mt-1.5 italic">
                             After generation, the AI will validate if the chapter meets these criteria and maintains cohesion with previous chapters.
                           </p>
+
+                          {/* Checkbox to copy acceptance criteria to following chapters */}
+                          {index < chapters.length - 1 && chapter.acceptanceCriteria && chapter.acceptanceCriteria.trim() && (
+                            <div className="mt-3 pt-3 border-t border-slate-200">
+                              <label className="flex items-start gap-2 cursor-pointer group">
+                                <input
+                                  type="checkbox"
+                                  className="mt-0.5 w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                                  disabled={isGenerating}
+                                  onChange={(e) => {
+                                    if (e.target.checked && chapter.acceptanceCriteria) {
+                                      // Copy acceptance criteria to all following chapters
+                                      const updatedChapters = [...chapters];
+                                      for (let i = index + 1; i < updatedChapters.length; i++) {
+                                        updatedChapters[i] = {
+                                          ...updatedChapters[i],
+                                          acceptanceCriteria: chapter.acceptanceCriteria
+                                        };
+                                      }
+                                      // Update all chapters at once
+                                      updatedChapters.forEach((ch, i) => {
+                                        if (i > index) {
+                                          onUpdateChapter(i, 'acceptanceCriteria', chapter.acceptanceCriteria || '');
+                                        }
+                                      });
+                                    }
+                                  }}
+                                />
+                                <span className="text-xs text-slate-600 group-hover:text-slate-800 select-none">
+                                  Copy these acceptance criteria to all following chapters ({chapters.length - index - 1} chapter{chapters.length - index - 1 !== 1 ? 's' : ''})
+                                </span>
+                              </label>
+                            </div>
+                          )}
                         </div>
                       )}
 
