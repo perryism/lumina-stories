@@ -463,13 +463,27 @@ const App: React.FC = () => {
 
     try {
       const updatedOutline = [...state.outline];
+      const currentChapter = updatedOutline[chapterIndex];
+
+      // Save current version to revision history before regenerating
+      if (currentChapter.content) {
+        const revisionHistory = currentChapter.revisionHistory || [];
+        revisionHistory.push({
+          content: currentChapter.content,
+          detailedSummary: currentChapter.detailedSummary,
+          timestamp: Date.now(),
+          feedback: feedback
+        });
+        currentChapter.revisionHistory = revisionHistory;
+        console.log(`[Regenerate Chapter ${chapterIndex + 1}] Saved current version to history (total versions: ${revisionHistory.length})`);
+      }
 
       // Mark as generating and update acceptance criteria if provided
       updatedOutline[chapterIndex] = {
-        ...updatedOutline[chapterIndex],
+        ...currentChapter,
         status: 'generating',
         // Update acceptance criteria if provided, otherwise keep existing
-        acceptanceCriteria: acceptanceCriteria !== undefined ? acceptanceCriteria : updatedOutline[chapterIndex].acceptanceCriteria
+        acceptanceCriteria: acceptanceCriteria !== undefined ? acceptanceCriteria : currentChapter.acceptanceCriteria
       };
       setState(prev => ({ ...prev, outline: [...updatedOutline] }));
 
@@ -540,6 +554,33 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleUndoRevision = (chapterIndex: number) => {
+    const updatedOutline = [...state.outline];
+    const chapter = updatedOutline[chapterIndex];
+
+    if (!chapter.revisionHistory || chapter.revisionHistory.length === 0) {
+      console.log(`[Undo Revision] No revision history for Chapter ${chapterIndex + 1}`);
+      return;
+    }
+
+    // Get the most recent version from history
+    const previousVersion = chapter.revisionHistory[chapter.revisionHistory.length - 1];
+
+    // Remove it from history
+    const newHistory = chapter.revisionHistory.slice(0, -1);
+
+    // Restore the previous version
+    updatedOutline[chapterIndex] = {
+      ...chapter,
+      content: previousVersion.content,
+      detailedSummary: previousVersion.detailedSummary,
+      revisionHistory: newHistory
+    };
+
+    setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+    console.log(`[Undo Revision] Restored Chapter ${chapterIndex + 1} to previous version (${newHistory.length} versions remaining in history)`);
   };
 
   // Update prompt when chapter outline changes in manual mode
@@ -973,6 +1014,7 @@ const App: React.FC = () => {
           chapters={state.outline}
           genre={state.genre}
           onRegenerateChapter={handleRegenerateChapter}
+          onUndoRevision={handleUndoRevision}
           isRegenerating={isLoading}
           onSave={handleSaveStory}
           onBack={handleBackFromReader}

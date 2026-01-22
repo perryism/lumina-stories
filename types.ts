@@ -13,6 +13,13 @@ export interface ForeshadowingNote {
   createdAt: number; // Timestamp for ordering
 }
 
+export interface ChapterVersion {
+  content: string;
+  detailedSummary?: string;
+  timestamp: number;
+  feedback?: string; // The feedback that led to this revision
+}
+
 export interface Chapter {
   id: number;
   title: string;
@@ -29,6 +36,7 @@ export interface Chapter {
     feedback: string;
     timestamp: number;
   };
+  revisionHistory?: ChapterVersion[]; // History of previous versions for undo functionality
 }
 
 export interface ChapterOutcome {

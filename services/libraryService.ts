@@ -99,6 +99,26 @@ const storyToYAML = (story: SavedStory): string => {
           lines.push(`      - "${escapeYAMLString(f)}"`);
         });
       }
+      // Add revision history if it exists
+      if (chapter.revisionHistory && chapter.revisionHistory.length > 0) {
+        lines.push(`    revisionHistory:`);
+        chapter.revisionHistory.forEach((version) => {
+          lines.push(`      - timestamp: ${version.timestamp}`);
+          if (version.feedback) {
+            lines.push(`        feedback: "${escapeYAMLString(version.feedback)}"`);
+          }
+          lines.push(`        content: |`);
+          version.content.split('\n').forEach(line => {
+            lines.push(`          ${line}`);
+          });
+          if (version.detailedSummary) {
+            lines.push(`        detailedSummary: |`);
+            version.detailedSummary.split('\n').forEach(line => {
+              lines.push(`          ${line}`);
+            });
+          }
+        });
+      }
       // Add blank line between chapters for readability
       if (index < state.outline.length - 1) {
         lines.push('');
@@ -160,6 +180,9 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
   let inForeshadowing = false;
   let currentForeshadowingNote: any = null;
   let currentChapterOutcome: any = null;
+  let inRevisionHistory = false;
+  let currentRevision: any = null;
+  let currentRevisionKey: string | null = null;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -203,14 +226,22 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
 
       if (isNewChapter && currentChapterKey) {
         // Finalize the current chapter's multiline content before starting new chapter
-        currentChapter[currentChapterKey] = currentMultiline.join('\n');
+        if (currentRevisionKey) {
+          currentRevision[currentRevisionKey] = currentMultiline.join('\n');
+          currentRevisionKey = null;
+        } else {
+          currentChapter[currentChapterKey] = currentMultiline.join('\n');
+        }
         currentChapterKey = null;
         currentKey = null;
         currentMultiline = [];
         // Don't continue, let this line be processed as a new chapter
       } else if (isNewKey && indent === expectedIndent) {
         // This is a new key, finish the multiline
-        if (currentChapterKey) {
+        if (currentRevisionKey) {
+          currentRevision[currentRevisionKey] = currentMultiline.join('\n');
+          currentRevisionKey = null;
+        } else if (currentChapterKey) {
           currentChapter[currentChapterKey] = currentMultiline.join('\n');
           currentChapterKey = null;
         } else {
@@ -221,7 +252,9 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
         // Don't continue, let this line be processed as a new key
       } else if (!line.trim().startsWith('-')) {
         // Continue multiline content
-        if (currentChapterKey && indent >= 6) {
+        if (currentRevisionKey && indent >= 10) {
+          currentMultiline.push(line.replace(/^\s{10}/, ''));
+        } else if (currentChapterKey && indent >= 6) {
           currentMultiline.push(line.replace(/^\s{6}/, ''));
         } else if (indent >= 2) {
           currentMultiline.push(line.replace(/^\s{2}/, ''));
@@ -230,7 +263,10 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
       }
     } else if (currentKey) {
       // Finalize multiline content even if empty
-      if (currentChapterKey) {
+      if (currentRevisionKey) {
+        currentRevision[currentRevisionKey] = currentMultiline.join('\n');
+        currentRevisionKey = null;
+      } else if (currentChapterKey) {
         currentChapter[currentChapterKey] = currentMultiline.join('\n');
         currentChapterKey = null;
       } else {
@@ -308,10 +344,17 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
       }
       // Outline parsing
       else if (inOutline && line.startsWith('  - ')) {
+        // Finalize any pending revision before starting new chapter
+        if (currentRevision && currentChapter && currentChapter.revisionHistory) {
+          currentChapter.revisionHistory.push(currentRevision);
+          currentRevision = null;
+        }
         if (currentChapter) {
           story.state.outline.push(currentChapter);
         }
         currentChapter = { foreshadowing: [], content: '' };
+        inForeshadowing = false;
+        inRevisionHistory = false;
         const chapterKey = key.replace('- ', '');
         if (chapterKey === 'id') {
           currentChapter[chapterKey] = parseInt(value);
@@ -322,7 +365,27 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
         if (currentChapter) {
           if (key === 'foreshadowing') {
             inForeshadowing = true;
+            inRevisionHistory = false;
             continue;
+          }
+          if (key === 'revisionHistory') {
+            // Finalize any pending revision before starting new section
+            if (currentRevision && currentChapter.revisionHistory) {
+              currentChapter.revisionHistory.push(currentRevision);
+              currentRevision = null;
+            }
+            inRevisionHistory = true;
+            inForeshadowing = false;
+            currentChapter.revisionHistory = [];
+            continue;
+          }
+          // If we hit a new chapter property, exit revision history mode
+          if (inRevisionHistory && !line.startsWith('      ')) {
+            if (currentRevision && currentChapter.revisionHistory) {
+              currentChapter.revisionHistory.push(currentRevision);
+              currentRevision = null;
+            }
+            inRevisionHistory = false;
           }
           if (value === '|') {
             currentChapterKey = key;
@@ -338,6 +401,35 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
         if (currentChapter) {
           currentChapter.foreshadowing.push(unescapeYAMLString(value));
         }
+      } else if (inOutline && inRevisionHistory && line.startsWith('      - ')) {
+        // Start of a new revision
+        if (currentRevision) {
+          currentChapter.revisionHistory.push(currentRevision);
+        }
+        currentRevision = {};
+        const revisionKey = key.replace('- ', '');
+        if (revisionKey === 'timestamp') {
+          currentRevision[revisionKey] = parseInt(value);
+        } else {
+          currentRevision[revisionKey] = unescapeYAMLString(value);
+        }
+      } else if (inOutline && inRevisionHistory && line.startsWith('        ')) {
+        // Revision properties
+        if (currentRevision) {
+          if (value === '|') {
+            currentRevisionKey = key;
+            currentMultiline = [];
+            currentKey = 'revision';
+          } else if (key === 'timestamp') {
+            currentRevision[key] = parseInt(value);
+          } else {
+            currentRevision[key] = unescapeYAMLString(value);
+          }
+        }
+      } else if (inOutline && inRevisionHistory && line.startsWith('          ') && currentRevisionKey) {
+        // Multiline content for revision
+        currentMultiline.push(line.replace(/^\s{10}/, ''));
+        continue;
       }
       // ForeshadowingNotes parsing
       else if (inForeshadowingNotes && line.startsWith('  - ')) {
@@ -391,6 +483,13 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
     story.state.characters.push(currentCharacter);
   }
 
+  // Add last revision if exists
+  if (currentRevision) {
+    if (currentChapter && currentChapter.revisionHistory) {
+      currentChapter.revisionHistory.push(currentRevision);
+    }
+  }
+
   // Add last chapter if exists
   if (currentChapter) {
     story.state.outline.push(currentChapter);
@@ -410,7 +509,9 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
 
   // Add last multiline if exists
   if (currentKey && currentMultiline.length > 0) {
-    if (currentChapterKey) {
+    if (currentRevisionKey) {
+      currentRevision[currentRevisionKey] = currentMultiline.join('\n');
+    } else if (currentChapterKey) {
       currentChapter[currentChapterKey] = currentMultiline.join('\n');
     } else {
       story.state[currentKey] = currentMultiline.join('\n');

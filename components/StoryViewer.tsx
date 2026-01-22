@@ -8,6 +8,7 @@ interface StoryViewerProps {
   chapters: Chapter[];
   genre?: string;
   onRegenerateChapter?: (chapterIndex: number, feedback: string, acceptanceCriteria?: string) => void;
+  onUndoRevision?: (chapterIndex: number) => void;
   isRegenerating?: boolean;
   onSave?: () => void;
   onBack?: () => void;
@@ -19,6 +20,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   chapters,
   genre,
   onRegenerateChapter,
+  onUndoRevision,
   isRegenerating = false,
   onSave,
   onBack,
@@ -271,20 +273,41 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
           {onRegenerateChapter && (
             <div className="mt-12 pt-8 border-t border-slate-100">
               {!showFeedbackForm ? (
-                <button
-                  onClick={() => {
-                    setShowFeedbackForm(true);
-                    // Initialize acceptance criteria with current chapter's criteria
-                    setAcceptanceCriteria(activeChapter?.acceptanceCriteria || '');
-                  }}
-                  disabled={isRegenerating}
-                  className="w-full bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 border border-amber-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                  </svg>
-                  {isRegenerating ? 'Regenerating...' : 'Regenerate This Chapter'}
-                </button>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => {
+                      setShowFeedbackForm(true);
+                      // Initialize acceptance criteria with current chapter's criteria
+                      setAcceptanceCriteria(activeChapter?.acceptanceCriteria || '');
+                    }}
+                    disabled={isRegenerating}
+                    className="w-full bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 border border-amber-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                    </svg>
+                    {isRegenerating ? 'Regenerating...' : 'Regenerate This Chapter'}
+                  </button>
+
+                  {/* Undo Button - only show if there's revision history */}
+                  {onUndoRevision && activeChapter?.revisionHistory && activeChapter.revisionHistory.length > 0 && (
+                    <button
+                      onClick={() => {
+                        const originalIndex = chapters.findIndex(ch => ch.id === activeChapter.id);
+                        if (originalIndex !== -1) {
+                          onUndoRevision(originalIndex);
+                        }
+                      }}
+                      disabled={isRegenerating}
+                      className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 border border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      Undo Last Revision ({activeChapter.revisionHistory.length} version{activeChapter.revisionHistory.length !== 1 ? 's' : ''} available)
+                    </button>
+                  )}
+                </div>
               ) : (
                 <div className="space-y-4">
                   <div>
