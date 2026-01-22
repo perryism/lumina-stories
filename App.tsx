@@ -457,16 +457,25 @@ const App: React.FC = () => {
     await handleRegenerateChapter(chapterIndex, validationResult.feedback);
   };
 
-  const handleRegenerateChapter = async (chapterIndex: number, feedback: string) => {
+  const handleRegenerateChapter = async (chapterIndex: number, feedback: string, acceptanceCriteria?: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
       const updatedOutline = [...state.outline];
 
-      // Mark as generating
-      updatedOutline[chapterIndex] = { ...updatedOutline[chapterIndex], status: 'generating' };
+      // Mark as generating and update acceptance criteria if provided
+      updatedOutline[chapterIndex] = {
+        ...updatedOutline[chapterIndex],
+        status: 'generating',
+        // Update acceptance criteria if provided, otherwise keep existing
+        acceptanceCriteria: acceptanceCriteria !== undefined ? acceptanceCriteria : updatedOutline[chapterIndex].acceptanceCriteria
+      };
       setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+
+      if (acceptanceCriteria !== undefined) {
+        console.log(`[Regenerate Chapter ${chapterIndex + 1}] Updated acceptance criteria: ${acceptanceCriteria.substring(0, 100)}...`);
+      }
 
       // Get previous chapters summary
       const completedChapters = updatedOutline.slice(0, chapterIndex).filter(c => c.status === 'completed');

@@ -7,7 +7,7 @@ interface StoryViewerProps {
   title: string;
   chapters: Chapter[];
   genre?: string;
-  onRegenerateChapter?: (chapterIndex: number, feedback: string) => void;
+  onRegenerateChapter?: (chapterIndex: number, feedback: string, acceptanceCriteria?: string) => void;
   isRegenerating?: boolean;
   onSave?: () => void;
   onBack?: () => void;
@@ -29,6 +29,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   const [activeChapterIndex, setActiveChapterIndex] = useState(0);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [acceptanceCriteria, setAcceptanceCriteria] = useState('');
   const [showForeshadowing, setShowForeshadowing] = useState(false);
 
   const activeChapter = completedChapters[activeChapterIndex];
@@ -66,9 +67,10 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
       // Find the original chapter index in the full chapters array
       const originalIndex = chapters.findIndex(ch => ch.id === activeChapter.id);
       if (originalIndex !== -1) {
-        onRegenerateChapter(originalIndex, feedback);
+        onRegenerateChapter(originalIndex, feedback, acceptanceCriteria);
       }
       setFeedback('');
+      setAcceptanceCriteria('');
       setShowFeedbackForm(false);
     }
   };
@@ -77,6 +79,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     setActiveChapterIndex(newIndex);
     setShowFeedbackForm(false);
     setFeedback('');
+    setAcceptanceCriteria('');
   };
 
   // If no completed chapters, show a message
@@ -269,7 +272,11 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
             <div className="mt-12 pt-8 border-t border-slate-100">
               {!showFeedbackForm ? (
                 <button
-                  onClick={() => setShowFeedbackForm(true)}
+                  onClick={() => {
+                    setShowFeedbackForm(true);
+                    // Initialize acceptance criteria with current chapter's criteria
+                    setAcceptanceCriteria(activeChapter?.acceptanceCriteria || '');
+                  }}
                   disabled={isRegenerating}
                   className="w-full bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 border border-amber-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -291,6 +298,23 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
                       className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-y min-h-[120px]"
                       disabled={isRegenerating}
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Acceptance Criteria (Optional)
+                    </label>
+                    <textarea
+                      value={acceptanceCriteria}
+                      onChange={(e) => setAcceptanceCriteria(e.target.value)}
+                      placeholder="Define criteria this chapter must meet (e.g., 'Include a plot twist', 'Develop character relationship', 'Maintain suspenseful tone')..."
+                      className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-y min-h-[80px]"
+                      disabled={isRegenerating}
+                    />
+                    <p className="text-xs text-slate-500 mt-1.5 italic">
+                      {activeChapter?.acceptanceCriteria
+                        ? `Current criteria: "${activeChapter.acceptanceCriteria.substring(0, 100)}${activeChapter.acceptanceCriteria.length > 100 ? '...' : ''}"`
+                        : 'No acceptance criteria currently set for this chapter.'}
+                    </p>
                   </div>
                   <div className="flex gap-3">
                     <button

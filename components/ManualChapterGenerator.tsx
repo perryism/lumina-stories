@@ -15,7 +15,7 @@ interface ManualChapterGeneratorProps {
   onUpdatePrompt: (prompt: string) => void;
   onUpdateSystemPrompt?: (prompt: string) => void;
   onGenerateNext: (customPrompt: string) => void;
-  onRegenerateChapter?: (chapterIndex: number, feedback: string) => void;
+  onRegenerateChapter?: (chapterIndex: number, feedback: string, acceptanceCriteria?: string) => void;
   onViewStory: () => void;
   isGenerating: boolean;
   isContinuousMode?: boolean;
@@ -90,6 +90,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   const [showPromptEditor, setShowPromptEditor] = useState(false);
   const [showCharacterSelector, setShowCharacterSelector] = useState(false);
   const [revisionFeedback, setRevisionFeedback] = useState<{ [key: number]: string }>({});
+  const [revisionAcceptanceCriteria, setRevisionAcceptanceCriteria] = useState<{ [key: number]: string }>({});
   const [showRevisionForm, setShowRevisionForm] = useState<number | null>(null);
 
   const nextChapterIndex = chapters.findIndex(ch => ch.status === 'pending');
@@ -413,7 +414,14 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                         <div className="mt-4 pt-4 border-t border-slate-100">
                           {showRevisionForm !== index ? (
                             <button
-                              onClick={() => setShowRevisionForm(index)}
+                              onClick={() => {
+                                setShowRevisionForm(index);
+                                // Initialize acceptance criteria with current chapter's criteria
+                                setRevisionAcceptanceCriteria({
+                                  ...revisionAcceptanceCriteria,
+                                  [index]: chapter.acceptanceCriteria || ''
+                                });
+                              }}
                               disabled={isGenerating}
                               className="w-full bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold py-2.5 px-4 rounded-lg transition-all flex items-center justify-center gap-2 border border-amber-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                             >
@@ -436,12 +444,30 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                                   disabled={isGenerating}
                                 />
                               </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-2 uppercase tracking-wide">
+                                  Acceptance Criteria (Optional)
+                                </label>
+                                <textarea
+                                  value={revisionAcceptanceCriteria[index] || ''}
+                                  onChange={(e) => setRevisionAcceptanceCriteria({ ...revisionAcceptanceCriteria, [index]: e.target.value })}
+                                  placeholder="Define criteria this chapter must meet (e.g., 'Include a plot twist', 'Develop character relationship', 'Maintain suspenseful tone')..."
+                                  className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none resize-y min-h-[60px]"
+                                  disabled={isGenerating}
+                                />
+                                <p className="text-xs text-slate-500 mt-1.5 italic">
+                                  {chapter.acceptanceCriteria
+                                    ? `Current: "${chapter.acceptanceCriteria.substring(0, 80)}${chapter.acceptanceCriteria.length > 80 ? '...' : ''}"`
+                                    : 'No acceptance criteria currently set.'}
+                                </p>
+                              </div>
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => {
                                     if (revisionFeedback[index]?.trim()) {
-                                      onRegenerateChapter(index, revisionFeedback[index]);
+                                      onRegenerateChapter(index, revisionFeedback[index], revisionAcceptanceCriteria[index]);
                                       setRevisionFeedback({ ...revisionFeedback, [index]: '' });
+                                      setRevisionAcceptanceCriteria({ ...revisionAcceptanceCriteria, [index]: '' });
                                       setShowRevisionForm(null);
                                     }
                                   }}
@@ -469,6 +495,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                                   onClick={() => {
                                     setShowRevisionForm(null);
                                     setRevisionFeedback({ ...revisionFeedback, [index]: '' });
+                                    setRevisionAcceptanceCriteria({ ...revisionAcceptanceCriteria, [index]: '' });
                                   }}
                                   disabled={isGenerating}
                                   className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
