@@ -110,7 +110,7 @@ export const generateOutline = async (
     Characters:
     ${charactersPrompt}
 
-    For each chapter, provide a catchy title and a 2-3 sentence summary of the plot developments.
+    For each chapter, provide a catchy title and a 300-word sentence summary of the plot developments.
     Ensure the themes, complexity, and content are appropriate for ${readingLevelNote}.
   `;
 
@@ -1348,7 +1348,7 @@ export const generateChapterSuggestions = async (
     - Keep the chapter's general position and purpose in the story arc
     ${userPrompt.trim() ? '- Address the specific improvements requested by the user' : '- Enhance drama, character development, or plot progression'}
 
-    Each suggestion should have a compelling title and a 2-3 sentence summary.
+    Each suggestion should have a compelling title and a 300-words sentence summary.
   `;
 
   if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
