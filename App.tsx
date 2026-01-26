@@ -608,12 +608,17 @@ const App: React.FC = () => {
           updatedOutline[i] = { ...updatedOutline[i], status: 'generating' };
           setState(prev => ({ ...prev, outline: [...updatedOutline] }));
 
+          // CRITICAL: Ensure the outline passed to generateChapterContent has the latest content
+          // This is important for generating the lastChapterContinuationSummary
+          console.log(`[Write All - Chapter ${i + 1}] Generating chapter content...`);
+          console.log(`[Write All - Chapter ${i + 1}] Previous summary length: ${previousSummary.length} chars`);
+
           const content = await generateChapterContent(
             state.title,
             state.genre,
             state.characters,
             i,
-            updatedOutline,
+            updatedOutline, // This now has all previously completed chapters with content
             previousSummary,
             undefined,
             state.readingLevel,
@@ -623,23 +628,28 @@ const App: React.FC = () => {
 
           updatedOutline[i] = { ...updatedOutline[i], content, status: 'completed' };
           setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+          console.log(`[Write All - Chapter ${i + 1}] Chapter content generated (${content.length} chars)`);
 
           // Generate detailed summary for this chapter
           try {
-            console.log(`[Batch Chapter ${i + 1}] Generating detailed summary...`);
+            console.log(`[Write All - Chapter ${i + 1}] Generating detailed summary...`);
             const detailedSummary = await generateDetailedChapterSummary(updatedOutline[i]);
             updatedOutline[i] = { ...updatedOutline[i], detailedSummary };
             setState(prev => ({ ...prev, outline: [...updatedOutline] }));
-            console.log(`[Batch Chapter ${i + 1}] Detailed summary generated (${detailedSummary.length} chars)`);
+            console.log(`[Write All - Chapter ${i + 1}] Detailed summary generated (${detailedSummary.length} chars)`);
           } catch (err) {
-            console.error(`[Batch Chapter ${i + 1}] Failed to generate detailed summary:`, err);
+            console.error(`[Write All - Chapter ${i + 1}] Failed to generate detailed summary:`, err);
             // Continue even if summary generation fails
           }
 
           // Update summary for next chapter
           if (i < state.outline.length - 1) {
+            console.log(`[Write All - Chapter ${i + 1}] Generating summary of all completed chapters for next chapter...`);
             const completedChapters = updatedOutline.filter(c => c.status === 'completed');
+            console.log(`[Write All - Chapter ${i + 1}] Found ${completedChapters.length} completed chapters`);
+
             previousSummary = await summarizePreviousChapters(completedChapters);
+            console.log(`[Write All - Chapter ${i + 1}] Summary generated for next chapter (${previousSummary.length} chars)`);
 
             // Update the outline with any newly generated detailed summaries
             // (summarizePreviousChapters may have generated summaries for chapters that didn't have them)

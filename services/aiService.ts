@@ -434,19 +434,43 @@ export const generateChapterContent = async (
   let lastChapterContinuationSummary = '';
   if (chapterIndex > 0) {
     const lastChapter = outline[chapterIndex - 1];
+    console.log(`[generateChapterContent] Checking last chapter (Chapter ${chapterIndex}):`, {
+      exists: !!lastChapter,
+      hasContent: !!lastChapter?.content,
+      contentLength: lastChapter?.content?.length || 0,
+      status: lastChapter?.status
+    });
+
     if (lastChapter && lastChapter.content && lastChapter.status === 'completed') {
-      console.log(`[generateChapterContent] Generating continuation summary for last chapter (Chapter ${lastChapter.id})...`);
+      console.log(`[generateChapterContent] ✅ Generating continuation summary for last chapter (Chapter ${lastChapter.id})...`);
       try {
         lastChapterContinuationSummary = await generateLastChapterContinuationSummary(lastChapter);
-        console.log(`[generateChapterContent] Last chapter continuation summary generated (${lastChapterContinuationSummary.length} chars)`);
+        console.log(`[generateChapterContent] ✅ Last chapter continuation summary generated (${lastChapterContinuationSummary.length} chars)`);
+        console.log(`[generateChapterContent] Continuation summary preview: ${lastChapterContinuationSummary.substring(0, 200)}...`);
       } catch (error) {
-        console.error(`[generateChapterContent] Failed to generate last chapter continuation summary:`, error);
+        console.error(`[generateChapterContent] ❌ Failed to generate last chapter continuation summary:`, error);
         // Continue without it - we still have the general summary
       }
+    } else {
+      console.warn(`[generateChapterContent] ⚠️ Cannot generate continuation summary - last chapter not ready:`, {
+        hasLastChapter: !!lastChapter,
+        hasContent: !!lastChapter?.content,
+        status: lastChapter?.status
+      });
     }
   }
 
   // Always build the base prompt with previous chapters summary for context
+  console.log(`[generateChapterContent] Building chapter prompt with:`, {
+    chapterIndex,
+    hasPreviousSummary: !!previousChaptersSummary,
+    previousSummaryLength: previousChaptersSummary.length,
+    hasLastChapterContinuation: !!lastChapterContinuationSummary,
+    lastChapterContinuationLength: lastChapterContinuationSummary.length,
+    hasCustomPrompt: !!customPrompt,
+    selectedCharacterIds: selectedCharacterIds || 'all characters'
+  });
+
   const basePrompt = buildChapterPrompt(
     storyTitle,
     genre,
@@ -464,6 +488,8 @@ export const generateChapterContent = async (
   const prompt = customPrompt
     ? `${basePrompt}\n\nADDITIONAL INSTRUCTIONS:\n${customPrompt}\n\nGenerate the chapter content now, following both the base requirements above and these additional instructions:`
     : basePrompt;
+
+  console.log(`[generateChapterContent] Final prompt length: ${prompt.length} chars`);
 
   // Log summary usage for debugging
   if (previousChaptersSummary) {
