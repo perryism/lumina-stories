@@ -2,6 +2,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import OpenAI from "openai";
 import { Character, Chapter, ReadingLevel, ChapterOutcome, ForeshadowingNote } from "../types";
+import { getSelectedModel } from "../utils/modelSelection";
 
 // Configuration
 export type AIProvider = "gemini" | "openai" | "local";
@@ -21,6 +22,24 @@ const localClient = new OpenAI({
   dangerouslyAllowBrowser: true
 });
 
+// Helper function to get the selected local model
+// Falls back to task-specific models if defined, otherwise uses the selected model
+const getLocalModel = (taskType: 'outline' | 'chapter' | 'summary'): string => {
+  // Check for task-specific model first
+  const taskSpecificModel = taskType === 'outline'
+    ? process.env.LOCAL_MODEL_OUTLINE
+    : taskType === 'chapter'
+    ? process.env.LOCAL_MODEL_CHAPTER
+    : process.env.LOCAL_MODEL_SUMMARY;
+
+  if (taskSpecificModel) {
+    return taskSpecificModel;
+  }
+
+  // Otherwise use the selected model from the UI
+  return getSelectedModel();
+};
+
 // Model configurations
 const MODELS = {
   gemini: {
@@ -34,9 +53,9 @@ const MODELS = {
     summary: "gpt-4o-mini",
   },
   local: {
-    outline: process.env.LOCAL_MODEL_OUTLINE || process.env.LOCAL_MODEL || "local-model",
-    chapter: process.env.LOCAL_MODEL_CHAPTER || process.env.LOCAL_MODEL || "local-model",
-    summary: process.env.LOCAL_MODEL_SUMMARY || process.env.LOCAL_MODEL || "local-model",
+    get outline() { return getLocalModel('outline'); },
+    get chapter() { return getLocalModel('chapter'); },
+    get summary() { return getLocalModel('summary'); },
   },
 };
 

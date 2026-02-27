@@ -1,5 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  getAvailableModels,
+  getSelectedModel,
+  setSelectedModel,
+  hasMultipleModels,
+  isLocalProvider
+} from '../utils/modelSelection';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,6 +17,25 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children, onTemplatesClick, onNewStoryClick, onLibraryClick }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [selectedModel, setSelectedModelState] = useState<string>('');
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [showModelSelector, setShowModelSelector] = useState(false);
+
+  // Initialize model selection state
+  useEffect(() => {
+    if (isLocalProvider() && hasMultipleModels()) {
+      setShowModelSelector(true);
+      setAvailableModels(getAvailableModels());
+      setSelectedModelState(getSelectedModel());
+    }
+  }, []);
+
+  const handleModelChange = (modelName: string) => {
+    setSelectedModel(modelName);
+    setSelectedModelState(modelName);
+    // Trigger a page reload to apply the new model
+    window.location.reload();
+  };
 
   const handleLibraryClick = () => {
     onLibraryClick?.();
@@ -51,6 +77,23 @@ export const Layout: React.FC<LayoutProps> = ({ children, onTemplatesClick, onNe
             >
               Templates
             </span>
+
+            {/* Model Selector - Only show for local provider with multiple models */}
+            {showModelSelector && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium text-slate-500">Model:</label>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => handleModelChange(e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                >
+                  {availableModels.map(model => (
+                    <option key={model} value={model}>{model}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <button
               onClick={onNewStoryClick}
               className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-full text-sm font-semibold hover:bg-indigo-100 transition-colors"
@@ -93,6 +136,23 @@ export const Layout: React.FC<LayoutProps> = ({ children, onTemplatesClick, onNe
               >
                 Templates
               </span>
+
+              {/* Model Selector - Mobile */}
+              {showModelSelector && (
+                <div className="py-2 space-y-2">
+                  <label className="text-xs font-medium text-slate-500">Model:</label>
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => handleModelChange(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  >
+                    {availableModels.map(model => (
+                      <option key={model} value={model}>{model}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <button
                 onClick={handleNewStoryClick}
                 className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-full text-sm font-semibold hover:bg-indigo-100 transition-colors text-left"
