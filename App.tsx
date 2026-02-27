@@ -377,6 +377,34 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, currentStep: 'manual-generation' }));
   };
 
+  const handleUpdateChapterContent = (chapterIndex: number, newContent: string) => {
+    const updatedOutline = [...state.outline];
+    const chapter = updatedOutline[chapterIndex];
+
+    // Save current version to revision history before updating
+    if (chapter.content) {
+      const revisionHistory = chapter.revisionHistory || [];
+      revisionHistory.push({
+        content: chapter.content,
+        detailedSummary: chapter.detailedSummary,
+        timestamp: Date.now(),
+        feedback: 'Manual edit'
+      });
+      updatedOutline[chapterIndex] = {
+        ...chapter,
+        content: newContent,
+        revisionHistory
+      };
+    } else {
+      updatedOutline[chapterIndex] = {
+        ...chapter,
+        content: newContent
+      };
+    }
+
+    setState(prev => ({ ...prev, outline: updatedOutline }));
+  };
+
   const handleSelectOutcome = (outcome: ChapterOutcome) => {
     // Add a new chapter based on the selected outcome
     const newChapterId = state.outline.length + 1;
@@ -1078,6 +1106,7 @@ const App: React.FC = () => {
           genre={state.genre}
           onRegenerateChapter={handleRegenerateChapter}
           onUndoRevision={handleUndoRevision}
+          onUpdateChapterContent={handleUpdateChapterContent}
           isRegenerating={isLoading}
           onSave={handleSaveStory}
           onBack={handleBackFromReader}

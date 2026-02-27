@@ -9,6 +9,7 @@ interface StoryViewerProps {
   genre?: string;
   onRegenerateChapter?: (chapterIndex: number, feedback: string, acceptanceCriteria?: string) => void;
   onUndoRevision?: (chapterIndex: number) => void;
+  onUpdateChapterContent?: (chapterIndex: number, newContent: string) => void;
   isRegenerating?: boolean;
   onSave?: () => void;
   onBack?: () => void;
@@ -21,6 +22,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   genre,
   onRegenerateChapter,
   onUndoRevision,
+  onUpdateChapterContent,
   isRegenerating = false,
   onSave,
   onBack,
@@ -33,6 +35,8 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   const [feedback, setFeedback] = useState('');
   const [acceptanceCriteria, setAcceptanceCriteria] = useState('');
   const [showForeshadowing, setShowForeshadowing] = useState(false);
+  const [isEditingContent, setIsEditingContent] = useState(false);
+  const [editedContent, setEditedContent] = useState('');
 
   const activeChapter = completedChapters[activeChapterIndex];
 
@@ -78,10 +82,37 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   };
 
   const handleChapterChange = (newIndex: number) => {
+    // Save any pending edits before switching chapters
+    if (isEditingContent && editedContent !== activeChapter?.content) {
+      handleSaveEdit();
+    }
     setActiveChapterIndex(newIndex);
     setShowFeedbackForm(false);
     setFeedback('');
     setAcceptanceCriteria('');
+    setIsEditingContent(false);
+    setEditedContent('');
+  };
+
+  const handleStartEdit = () => {
+    setIsEditingContent(true);
+    setEditedContent(activeChapter?.content || '');
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingContent(false);
+    setEditedContent('');
+  };
+
+  const handleSaveEdit = () => {
+    if (onUpdateChapterContent && activeChapter && editedContent !== activeChapter.content) {
+      const originalIndex = chapters.findIndex(ch => ch.id === activeChapter.id);
+      if (originalIndex !== -1) {
+        onUpdateChapterContent(originalIndex, editedContent);
+      }
+    }
+    setIsEditingContent(false);
+    setEditedContent('');
   };
 
   // If no completed chapters, show a message
@@ -259,18 +290,78 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
             </div>
           </header>
 
-          <article className="prose prose-slate prose-lg max-w-none">
-            {activeChapter.content && activeChapter.content.split('\n').map((para, i) => (
-              para.trim() ? (
-                <p key={i} className="mb-6 leading-relaxed text-slate-800 text-lg md:text-xl">
-                  {para}
-                </p>
-              ) : <br key={i} />
-            ))}
-          </article>
+          {/* Edit Mode */}
+          {isEditingContent ? (
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                </svg>
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold text-blue-900 mb-1">Editing Mode</h4>
+                  <p className="text-sm text-blue-800">
+                    Make your changes below. Each paragraph should be on a new line. Click "Save Changes" when done.
+                  </p>
+                </div>
+              </div>
+              <textarea
+                value={editedContent}
+                onChange={(e) => setEditedContent(e.target.value)}
+                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-y min-h-[500px] font-serif text-lg leading-relaxed"
+                placeholder="Enter chapter content..."
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={editedContent === activeChapter?.content}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Save Changes
+                </button>
+                <button
+                  onClick={handleCancelEdit}
+                  className="px-6 py-3 border border-slate-300 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Read Mode */}
+              <article className="prose prose-slate prose-lg max-w-none">
+                {activeChapter.content && activeChapter.content.split('\n').map((para, i) => (
+                  para.trim() ? (
+                    <p key={i} className="mb-6 leading-relaxed text-slate-800 text-lg md:text-xl">
+                      {para}
+                    </p>
+                  ) : <br key={i} />
+                ))}
+              </article>
 
-          {/* Regeneration Feedback Form */}
-          {onRegenerateChapter && (
+              {/* Edit Button */}
+              {onUpdateChapterContent && (
+                <div className="mt-8 pt-8 border-t border-slate-100">
+                  <button
+                    onClick={handleStartEdit}
+                    disabled={isRegenerating}
+                    className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 border border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    </svg>
+                    Edit Chapter Content
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Regeneration Feedback Form - only show when not editing */}
+          {!isEditingContent && onRegenerateChapter && (
             <div className="mt-12 pt-8 border-t border-slate-100">
               {!showFeedbackForm ? (
                 <div className="space-y-3">
