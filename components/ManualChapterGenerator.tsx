@@ -93,7 +93,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   const [revisionAcceptanceCriteria, setRevisionAcceptanceCriteria] = useState<{ [key: number]: string }>({});
   const [showRevisionForm, setShowRevisionForm] = useState<number | null>(null);
 
-  const nextChapterIndex = chapters.findIndex(ch => ch.status === 'pending');
+  const nextChapterIndex = chapters.findIndex(ch => ch.status === 'pending' || ch.status === 'error');
   const allCompleted = chapters.every(ch => ch.status === 'completed');
   const currentGeneratingIndex = chapters.findIndex(ch => ch.status === 'generating');
 
@@ -197,13 +197,15 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
             const isNext = index === nextChapterIndex;
             const isGenerating = index === currentGeneratingIndex;
             const isCompleted = chapter.status === 'completed';
+            const isError = chapter.status === 'error';
             const isExpanded = expandedChapter === index;
 
             return (
               <div
                 key={chapter.id}
                 className={`bg-white rounded-2xl shadow-sm border transition-all ${
-                  isNext ? 'border-indigo-300 ring-2 ring-indigo-100' :
+                  isNext && !isError ? 'border-indigo-300 ring-2 ring-indigo-100' :
+                  isError ? 'border-red-300 ring-2 ring-red-100' :
                   isGenerating ? 'border-indigo-500 ring-2 ring-indigo-200' :
                   isCompleted ? 'border-green-200' : 'border-slate-100'
                 }`}
@@ -213,6 +215,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                     {/* Status Icon */}
                     <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
                       isCompleted ? 'bg-green-100 text-green-600' :
+                      isError ? 'bg-red-100 text-red-600' :
                       isGenerating ? 'bg-indigo-600 text-white animate-pulse' :
                       isNext ? 'bg-indigo-100 text-indigo-600' :
                       'bg-slate-100 text-slate-400'
@@ -221,6 +224,10 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
+                      ) : isError ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
                       ) : index + 1}
                     </div>
 
@@ -228,8 +235,8 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                     <div className="flex-1 min-w-0">
                       <input
                         className={`w-full text-xl font-bold bg-transparent border-b pb-1 outline-none transition-colors ${
-                          isNext || isGenerating ? 'text-slate-900 border-indigo-300' : 'text-slate-700 border-transparent'
-                        } ${isCompleted ? 'cursor-default' : ''}`}
+                          isNext || isGenerating || isError ? 'text-slate-900 border-indigo-300' : 'text-slate-700 border-transparent'
+                        } ${isError ? 'border-red-300' : ''} ${isCompleted ? 'cursor-default' : ''}`}
                         value={chapter.title}
                         onChange={(e) => !isCompleted && onUpdateChapter(index, 'title', e.target.value)}
                         disabled={isCompleted || isGenerating}
@@ -249,7 +256,24 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                         />
                       </div>
 
-                      {/* Acceptance Criteria for pending/next chapters */}
+                      {/* Error message for failed chapters */}
+                      {isError && (
+                        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-red-800">Generation Failed</p>
+                              <p className="text-sm text-red-700 mt-1">
+                                This chapter failed to generate. You can edit the title and summary above, then click "Generate Next Chapter" to retry.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Acceptance Criteria for pending/next/error chapters */}
                       {!isCompleted && (
                         <div className="mt-4 pt-4 border-t border-slate-100">
                           <div className="flex items-center gap-2 mb-2">
@@ -357,7 +381,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                         </div>
                       )}
 
-                      {/* Character Selection for pending/next chapters */}
+                      {/* Character Selection for pending/next/error chapters */}
                       {!isCompleted && characters.length > 0 && (
                         <div className="mt-4 pt-4 border-t border-slate-100">
                           <div className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-2">
@@ -609,9 +633,20 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
 
             {!allCompleted && nextChapterIndex !== -1 && (
               <div className="pt-4 border-t border-slate-100 space-y-4">
-                <p className="text-sm text-slate-600">
-                  Ready to generate <span className="font-bold text-slate-900">Chapter {nextChapterIndex + 1}</span>
-                </p>
+                {chapters[nextChapterIndex].status === 'error' ? (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-sm font-semibold text-red-800 mb-1">
+                      Chapter {nextChapterIndex + 1} Failed
+                    </p>
+                    <p className="text-xs text-red-700">
+                      Click "Generate Next Chapter" below to retry generation.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-600">
+                    Ready to generate <span className="font-bold text-slate-900">Chapter {nextChapterIndex + 1}</span>
+                  </p>
+                )}
 
                 {/* Character Summary */}
                 {characters.length > 0 && (
@@ -872,7 +907,11 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                 <button
                   onClick={() => onGenerateNext(currentPrompt)}
                   disabled={isGenerating}
-                  className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+                  className={`w-full font-bold py-3 px-4 rounded-xl disabled:bg-slate-300 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 ${
+                    chapters[nextChapterIndex].status === 'error'
+                      ? 'bg-red-600 text-white hover:bg-red-700'
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  }`}
                 >
                   {isGenerating ? (
                     <>
@@ -881,6 +920,13 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                       Generating...
+                    </>
+                  ) : chapters[nextChapterIndex].status === 'error' ? (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                      </svg>
+                      Retry Chapter Generation
                     </>
                   ) : (
                     <>
