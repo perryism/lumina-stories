@@ -1012,48 +1012,88 @@ export const regenerateChapterContent = async (
     }
   }
 
-  // Build the base prompt similar to the original generation
-  const basePrompt = buildChapterPrompt(
-    storyTitle,
-    genre,
-    characters,
-    chapterIndex,
-    outline,
-    previousChaptersSummary,
-    selectedCharacterIds,
-    readingLevel,
-    foreshadowingNotes,
-    lastChapterContinuationSummary
-  );
+  // Build foreshadowing instructions if needed
+  let foreshadowingSection = '';
+  if (foreshadowingNotes && foreshadowingNotes.length > 0) {
+    const notesToForeshadow = foreshadowingNotes.filter(
+      note => note.targetChapterId > chapterIndex + 1
+    );
+    const notesToReveal = foreshadowingNotes.filter(
+      note => note.targetChapterId === chapterIndex + 1
+    );
 
-  // Add the user feedback and regeneration instructions
-  const regenerationPrompt = `${basePrompt}
+    if (notesToForeshadow.length > 0 || notesToReveal.length > 0) {
+      foreshadowingSection = '\n\n🔮 FORESHADOWING REQUIREMENTS:';
+      if (notesToForeshadow.length > 0) {
+        foreshadowingSection += '\nSubtle hints to include:';
+        notesToForeshadow.forEach(note => {
+          foreshadowingSection += `\n- Hint at: "${note.revealDescription}" (${note.foreshadowingHint})`;
+        });
+      }
+      if (notesToReveal.length > 0) {
+        foreshadowingSection += '\nReveals for this chapter:';
+        notesToReveal.forEach(note => {
+          foreshadowingSection += `\n- REVEAL: ${note.revealDescription}`;
+        });
+      }
+    }
+  }
 
-IMPORTANT: This is a REGENERATION of the chapter based on user feedback.
+  // Build a more focused regeneration prompt that emphasizes the user feedback
+  const regenerationPrompt = `🔄 CHAPTER REVISION REQUEST 🔄
 
-Previous version of the chapter:
-${currentChapter.content}
+You are revising Chapter ${chapterIndex + 1}: "${currentChapter.title}" of the ${genre} story "${storyTitle}".
 
-User Feedback:
+📝 USER'S REVISION INSTRUCTIONS (PRIMARY FOCUS):
 ${userFeedback}
 
-Please rewrite the chapter taking the user's feedback into account. Make sure to:
-1. Address all points mentioned in the feedback
-2. MAINTAIN FULL CONTINUITY with previous chapters - do not repeat events, revelations, or discoveries that already occurred
-3. Characters should remember and build upon what they learned in previous chapters
-4. Keep the core plot points from the chapter summary
-5. Maintain consistency with the story's tone, style, and established facts
-6. Improve upon the previous version based on the specific feedback provided
+⚠️ YOUR TASK: Rewrite this chapter to address the user's feedback above while maintaining story continuity.
 
-CRITICAL: The previous chapters summary above contains everything that has already happened in the story. Do NOT repeat or contradict any of those events. Build upon them naturally while addressing the user's feedback.
+📖 PREVIOUS VERSION OF THE CHAPTER:
+${currentChapter.content}
 
-Generate the improved chapter content now:`;
+📚 STORY CONTEXT (What happened before this chapter):
+${previousChaptersSummary || "This is the first chapter."}
+${lastChapterContinuationSummary ? `\n🎯 LAST CHAPTER ENDING:\n${lastChapterContinuationSummary}` : ''}
+
+📋 CHAPTER REQUIREMENTS:
+- Title: ${currentChapter.title}
+- Summary: ${currentChapter.summary}
+- Characters: ${characters.filter(c => !selectedCharacterIds || selectedCharacterIds.includes(c.id)).map(c => c.name).join(', ')}
+${currentChapter.acceptanceCriteria ? `- Acceptance Criteria: ${currentChapter.acceptanceCriteria}` : ''}
+${readingLevel ? `- Reading Level: ${readingLevel}` : ''}${foreshadowingSection}
+
+✅ REVISION CHECKLIST:
+1. ⭐ PRIMARY: Address ALL points in the user's revision instructions above
+2. Maintain continuity - don't repeat events from previous chapters
+3. Characters remember what happened before
+4. Keep the core plot from the chapter summary
+5. Match the story's established tone and style
+6. Improve the chapter based on the specific feedback
+
+🚫 DO NOT:
+- Ignore or downplay the user's revision instructions
+- Repeat events that already happened in previous chapters
+- Contradict established story facts
+- Change the core plot points from the chapter summary
+
+Generate the revised chapter content now, focusing primarily on addressing the user's feedback:`;
 
   if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
     const client = AI_PROVIDER === "local" ? localClient : openaiClient;
     const model = AI_PROVIDER === "local" ? MODELS.local.chapter : MODELS.openai.chapter;
 
-    const defaultSystemPrompt = `You are a professional fiction writer specializing in ${genre} stories. You are revising a chapter based on user feedback while maintaining perfect continuity with previous chapters. Write engaging, vivid prose with strong character development and compelling narrative flow. CRITICAL: Never repeat events or revelations that already occurred in previous chapters. Characters must remember what they learned and experienced before.`;
+    const defaultSystemPrompt = `You are a professional fiction writer specializing in ${genre} stories. You are revising a chapter based on specific user feedback.
+
+YOUR PRIMARY GOAL: Follow the user's revision instructions precisely. The user knows what they want - your job is to implement their vision while maintaining story quality.
+
+SECONDARY GOALS:
+- Maintain continuity with previous chapters
+- Keep character consistency
+- Preserve the story's tone and style
+- Never repeat events that already occurred
+
+CRITICAL: The user's feedback is your top priority. If they ask for more dialogue, add more dialogue. If they ask for more action, add more action. If they ask for emotional depth, add emotional depth. Follow their instructions closely.`;
     const systemPrompt = customSystemPrompt || defaultSystemPrompt;
 
     const response = await client.chat.completions.create({
