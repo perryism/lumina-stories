@@ -12,6 +12,7 @@ interface ManualChapterGeneratorProps {
   systemPrompt?: string;
   genre?: string;
   onUpdateChapter: (index: number, field: keyof Chapter, value: any) => void;
+  onUpdateChapterContent?: (chapterIndex: number, newContent: string) => void;
   onUpdatePrompt: (prompt: string) => void;
   onUpdateSystemPrompt?: (prompt: string) => void;
   onGenerateNext: (customPrompt: string) => void;
@@ -37,6 +38,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   systemPrompt = '',
   genre = 'Fantasy',
   onUpdateChapter,
+  onUpdateChapterContent,
   onUpdatePrompt,
   onUpdateSystemPrompt,
   onGenerateNext,
@@ -92,6 +94,8 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   const [revisionFeedback, setRevisionFeedback] = useState<{ [key: number]: string }>({});
   const [revisionAcceptanceCriteria, setRevisionAcceptanceCriteria] = useState<{ [key: number]: string }>({});
   const [showRevisionForm, setShowRevisionForm] = useState<number | null>(null);
+  const [editingChapterContent, setEditingChapterContent] = useState<number | null>(null);
+  const [editedContent, setEditedContent] = useState<{ [key: number]: string }>({});
 
   const nextChapterIndex = chapters.findIndex(ch => ch.status === 'pending' || ch.status === 'error');
   const allCompleted = chapters.every(ch => ch.status === 'completed');
@@ -108,6 +112,34 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
       ? currentIds.filter(id => id !== characterId)
       : [...currentIds, characterId];
     onUpdateChapter(chapterIndex, 'characterIds', newIds);
+  };
+
+  const handleStartEditContent = (index: number) => {
+    setEditingChapterContent(index);
+    setEditedContent({ ...editedContent, [index]: chapters[index].content || '' });
+  };
+
+  const handleCancelEditContent = (index: number) => {
+    setEditingChapterContent(null);
+    const newEditedContent = { ...editedContent };
+    delete newEditedContent[index];
+    setEditedContent(newEditedContent);
+  };
+
+  const handleSaveEditContent = (index: number) => {
+    const content = editedContent[index];
+    if (content !== undefined) {
+      // Use onUpdateChapterContent if available (saves revision history), otherwise fall back to onUpdateChapter
+      if (onUpdateChapterContent) {
+        onUpdateChapterContent(index, content);
+      } else {
+        onUpdateChapter(index, 'content', content);
+      }
+    }
+    setEditingChapterContent(null);
+    const newEditedContent = { ...editedContent };
+    delete newEditedContent[index];
+    setEditedContent(newEditedContent);
   };
 
   // Foreshadowing form handlers
@@ -444,25 +476,82 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                       {/* Show content preview for completed chapters */}
                       {isCompleted && (
                         <div className="mt-4 pt-4 border-t border-slate-100">
-                          <button
-                            onClick={() => toggleExpand(index)}
-                            className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
-                          >
-                            {isExpanded ? 'Hide' : 'Show'} Content
-                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                          {isExpanded && (
-                            <div className="mt-3 text-sm text-slate-600 leading-relaxed max-h-64 overflow-y-auto">
-                              {chapter.content ? (
-                                chapter.content.split('\n').map((para, i) => (
-                                  para.trim() ? <p key={i} className="mb-3">{para}</p> : <br key={i} />
-                                ))
-                              ) : (
-                                <p className="text-slate-400 italic">No content generated yet</p>
-                              )}
+                          {editingChapterContent === index ? (
+                            // Edit Mode
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                                  Edit Chapter Content
+                                </label>
+                                <button
+                                  onClick={() => handleCancelEditContent(index)}
+                                  className="text-xs text-slate-500 hover:text-slate-700"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                              <textarea
+                                value={editedContent[index] || ''}
+                                onChange={(e) => setEditedContent({ ...editedContent, [index]: e.target.value })}
+                                className="w-full px-4 py-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-y min-h-[400px] leading-relaxed font-serif"
+                                placeholder="Chapter content..."
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleSaveEditContent(index)}
+                                  className="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-all flex items-center gap-2"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                  Save Changes
+                                </button>
+                                <button
+                                  onClick={() => handleCancelEditContent(index)}
+                                  className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-all"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
                             </div>
+                          ) : (
+                            // View Mode
+                            <>
+                              <div className="flex items-center justify-between mb-2">
+                                <button
+                                  onClick={() => toggleExpand(index)}
+                                  className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
+                                >
+                                  {isExpanded ? 'Hide' : 'Show'} Content
+                                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                  </svg>
+                                </button>
+                                {isExpanded && (
+                                  <button
+                                    onClick={() => handleStartEditContent(index)}
+                                    disabled={isGenerating}
+                                    className="text-sm text-slate-600 hover:text-indigo-600 font-medium flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                    </svg>
+                                    Edit Content
+                                  </button>
+                                )}
+                              </div>
+                              {isExpanded && (
+                                <div className="mt-3 text-sm text-slate-600 leading-relaxed max-h-64 overflow-y-auto">
+                                  {chapter.content ? (
+                                    chapter.content.split('\n').map((para, i) => (
+                                      para.trim() ? <p key={i} className="mb-3">{para}</p> : <br key={i} />
+                                    ))
+                                  ) : (
+                                    <p className="text-slate-400 italic">No content generated yet</p>
+                                  )}
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       )}

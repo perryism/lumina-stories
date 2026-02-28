@@ -888,6 +888,7 @@ const App: React.FC = () => {
             systemPrompt={state.systemPrompt}
             genre={state.genre}
             onUpdateChapter={handleUpdateChapter}
+            onUpdateChapterContent={handleUpdateChapterContent}
             onUpdatePrompt={setCurrentPrompt}
             onUpdateSystemPrompt={(prompt) => setState(prev => ({ ...prev, systemPrompt: prompt }))}
             onGenerateNext={handleGenerateNextChapter}
