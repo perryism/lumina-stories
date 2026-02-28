@@ -17,11 +17,11 @@ const storyToYAML = (story: SavedStory): string => {
   lines.push(`# Progress: ${story.progress}%`);
   lines.push('');
 
-  lines.push(`title: "${escapeYAMLString(state.title)}"`);
-  lines.push(`genre: "${escapeYAMLString(state.genre)}"`);
-  lines.push(`readingLevel: "${state.readingLevel}"`);
-  lines.push(`currentStep: "${state.currentStep}"`);
-  lines.push(`numChapters: ${state.numChapters}`);
+  lines.push(`title: "${escapeYAMLString(state.title || '')}"`);
+  lines.push(`genre: "${escapeYAMLString(state.genre || 'Fantasy')}"`);
+  lines.push(`readingLevel: "${state.readingLevel || 'young-adult'}"`);
+  lines.push(`currentStep: "${state.currentStep || 'setup'}"`);
+  lines.push(`numChapters: ${state.numChapters || 0}`);
   lines.push('');
 
   if (state.plotOutline) {
@@ -533,7 +533,10 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
  * Escape special characters in YAML strings
  */
 const escapeYAMLString = (str: string): string => {
-  return str.replace(/"/g, '\\"').replace(/\n/g, '\\n');
+  if (str === null || str === undefined) {
+    return '';
+  }
+  return String(str).replace(/"/g, '\\"').replace(/\n/g, '\\n');
 };
 
 /**
@@ -583,6 +586,11 @@ export const getAllSavedStories = async (): Promise<SavedStory[]> => {
  * Save a story to the library as a YAML file
  */
 export const saveStory = async (state: StoryState): Promise<SavedStory> => {
+  // Validate that we have a title
+  if (!state.title || state.title.trim() === '') {
+    throw new Error('Cannot save story: Title is required');
+  }
+
   // Calculate progress
   const completedChapters = state.outline.filter(ch => ch.status === 'completed').length;
   const progress = state.outline.length > 0
@@ -689,6 +697,10 @@ export const exportStory = async (storyId: string): Promise<void> => {
 
   if (!story) {
     throw new Error('Story not found');
+  }
+
+  if (!story.state.title) {
+    throw new Error('Cannot export story: Title is missing');
   }
 
   const yamlContent = storyToYAML(story);
