@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.API_KEY),
         'process.env.OPENAI_API_KEY': JSON.stringify(env.OPENAI_API_KEY),
+        'process.env.MAX_TOKENS': JSON.stringify(env.MAX_TOKENS || '5000'),
         'process.env.LOCAL_API_URL': JSON.stringify(env.LOCAL_API_URL || 'http://localhost:1234/v1'),
         'process.env.LOCAL_API_KEY': JSON.stringify(env.LOCAL_API_KEY || 'not-needed'),
         'process.env.LOCAL_MODEL': JSON.stringify(env.LOCAL_MODEL || 'local-model'),

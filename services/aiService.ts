@@ -12,6 +12,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const LOCAL_API_URL = process.env.LOCAL_API_URL || 'http://localhost:1234/v1';
 const LOCAL_API_KEY = process.env.LOCAL_API_KEY || 'not-needed';
+const MAX_TOKENS = parseInt(process.env.MAX_TOKENS || '5000', 10);
 
 // Initialize clients
 const geminiClient = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
@@ -152,6 +153,7 @@ export const generateOutline = async (
         { role: "user", content: prompt },
       ],
       temperature: 0.7,
+      max_tokens: MAX_TOKENS,
     };
 
     // Configure structured output based on provider
@@ -544,6 +546,7 @@ Your goal is to write a chapter that feels like a natural continuation of the st
       ],
       temperature: 0.8,
       top_p: 0.95,
+      max_tokens: MAX_TOKENS,
     });
 
     return response.choices[0].message.content || "Failed to generate content.";
@@ -640,6 +643,7 @@ Be specific and concrete. The next chapter writer needs to know EXACTLY where to
           { role: "user", content: prompt }
         ],
         temperature: 0.3,
+        max_tokens: MAX_TOKENS,
       });
 
       const summary = response.choices[0].message.content || '';
@@ -740,6 +744,7 @@ Be thorough and specific. This summary will be used to ensure the next chapter c
           { role: "user", content: prompt }
         ],
         temperature: 0.3,
+        max_tokens: MAX_TOKENS,
       });
 
       const summary = response.choices[0].message.content || '';
@@ -869,6 +874,7 @@ ${textToSummarize}`;
         { role: "user", content: prompt },
       ],
       temperature: 0.3, // Lower temperature for more consistent, factual summaries
+      max_tokens: MAX_TOKENS,
     });
 
     const summary = response.choices[0].message.content || "";
@@ -942,6 +948,7 @@ Respond in JSON format with:
         ],
         temperature: 0.3,
         response_format: { type: "json_object" },
+        max_tokens: MAX_TOKENS,
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{"passed": true, "feedback": "Validation completed."}');
@@ -1107,6 +1114,7 @@ CRITICAL: The user's feedback is your top priority. If they ask for more dialogu
       ],
       temperature: 0.8,
       top_p: 0.95,
+      max_tokens: MAX_TOKENS,
     });
 
     return response.choices[0].message.content || "Failed to regenerate content.";
@@ -1236,6 +1244,7 @@ export const generateNextChapterOutcomes = async (
         { role: "user", content: prompt },
       ],
       temperature: 0.8,
+      max_tokens: MAX_TOKENS,
     };
 
     // Use structured output for OpenAI if available
@@ -1429,6 +1438,7 @@ export const generateChapterSuggestions = async (
         { role: "user", content: prompt },
       ],
       temperature: 0.8,
+      max_tokens: MAX_TOKENS,
     };
 
     // Add structured output for OpenAI if available
