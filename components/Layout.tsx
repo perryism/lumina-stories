@@ -33,8 +33,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, onTemplatesClick, onNe
   const handleModelChange = (modelName: string) => {
     setSelectedModel(modelName);
     setSelectedModelState(modelName);
-    // Trigger a page reload to apply the new model
-    window.location.reload();
   };
 
   const handleLibraryClick = () => {
