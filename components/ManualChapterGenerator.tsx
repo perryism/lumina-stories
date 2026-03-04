@@ -17,6 +17,7 @@ interface ManualChapterGeneratorProps {
   onUpdateSystemPrompt?: (prompt: string) => void;
   onGenerateNext: (customPrompt: string) => void;
   onRegenerateChapter?: (chapterIndex: number, feedback: string, acceptanceCriteria?: string) => void;
+  onClearChapter?: (chapterIndex: number) => void;
   onViewStory: () => void;
   isGenerating: boolean;
   isContinuousMode?: boolean;

@@ -405,6 +405,44 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, outline: updatedOutline }));
   };
 
+  const handleClearChapter = (chapterIndex: number) => {
+    const updatedOutline = [...state.outline];
+    const chapter = updatedOutline[chapterIndex];
+
+    // Save current version to revision history before clearing
+    if (chapter.content) {
+      const revisionHistory = chapter.revisionHistory || [];
+      revisionHistory.push({
+        content: chapter.content,
+        detailedSummary: chapter.detailedSummary,
+        timestamp: Date.now(),
+        feedback: 'Cleared chapter'
+      });
+      updatedOutline[chapterIndex] = {
+        ...chapter,
+        content: '',
+        detailedSummary: undefined,
+        status: 'pending',
+        revisionHistory
+      };
+    } else {
+      // If no content, just reset to pending
+      updatedOutline[chapterIndex] = {
+        ...chapter,
+        content: '',
+        detailedSummary: undefined,
+        status: 'pending'
+      };
+    }
+
+    setState(prev => ({ ...prev, outline: updatedOutline }));
+
+    // Update prompt for next chapter after clearing
+    setTimeout(() => {
+      updatePromptForNextChapter();
+    }, 100);
+  };
+
   const handleSelectOutcome = (outcome: ChapterOutcome) => {
     // Add a new chapter based on the selected outcome
     const newChapterId = state.outline.length + 1;
@@ -893,6 +931,7 @@ const App: React.FC = () => {
             onUpdateSystemPrompt={(prompt) => setState(prev => ({ ...prev, systemPrompt: prompt }))}
             onGenerateNext={handleGenerateNextChapter}
             onRegenerateChapter={handleRegenerateChapter}
+            onClearChapter={handleClearChapter}
             onViewStory={handleViewStory}
             isGenerating={isLoading}
             isContinuousMode={isContinuousMode}
