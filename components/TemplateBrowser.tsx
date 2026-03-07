@@ -12,11 +12,12 @@ import {
 interface TemplateBrowserProps {
   onSelectTemplate: (template: StoryTemplate) => void;
   onClose: () => void;
+  refreshTrigger?: number; // Optional prop to trigger refresh
 }
 
 type TemplateItem = TemplateFile | SavedTemplate;
 
-export const TemplateBrowser: React.FC<TemplateBrowserProps> = ({ onSelectTemplate, onClose }) => {
+export const TemplateBrowser: React.FC<TemplateBrowserProps> = ({ onSelectTemplate, onClose, refreshTrigger }) => {
   const [folderTemplates, setFolderTemplates] = useState<TemplateFile[]>([]);
   const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -24,7 +25,7 @@ export const TemplateBrowser: React.FC<TemplateBrowserProps> = ({ onSelectTempla
 
   useEffect(() => {
     loadTemplates();
-  }, []);
+  }, [refreshTrigger]); // Reload when refreshTrigger changes
 
   const loadTemplates = async () => {
     setIsLoading(true);

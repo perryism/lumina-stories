@@ -75,6 +75,7 @@ const App: React.FC = () => {
   const [templateToLoad, setTemplateToLoad] = useState<StoryTemplate | null>(null);
   const [showLibrary, setShowLibrary] = useState(false);
   const [currentStoryId, setCurrentStoryId] = useState<string | null>(null);
+  const [templateRefreshTrigger, setTemplateRefreshTrigger] = useState(0);
   const [validationPrompt, setValidationPrompt] = useState<{
     chapterIndex: number;
     content: string;
@@ -774,6 +775,11 @@ const App: React.FC = () => {
     setShowTemplateBrowser(false);
   };
 
+  const handleTemplateSaved = () => {
+    // Trigger template browser refresh by incrementing the trigger
+    setTemplateRefreshTrigger(prev => prev + 1);
+  };
+
   const handleLibraryClick = () => {
     setShowLibrary(true);
   };
@@ -879,6 +885,7 @@ const App: React.FC = () => {
           onStart={handleStartStory}
           isLoading={isLoading}
           initialTemplate={templateToLoad || undefined}
+          onTemplateSaved={handleTemplateSaved}
         />
       )}
 
@@ -886,6 +893,7 @@ const App: React.FC = () => {
         <TemplateBrowser
           onSelectTemplate={handleSelectTemplate}
           onClose={() => setShowTemplateBrowser(false)}
+          refreshTrigger={templateRefreshTrigger}
         />
       )}
 

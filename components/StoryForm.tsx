@@ -9,9 +9,10 @@ interface StoryFormProps {
   onStart: (data: { title: string; genre: string; numChapters: number; readingLevel: ReadingLevel; characters: Character[]; initialIdea: string; systemPrompt?: string }) => void;
   isLoading: boolean;
   initialTemplate?: StoryTemplate;
+  onTemplateSaved?: () => void; // Optional callback when template is saved
 }
 
-export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading, initialTemplate }) => {
+export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading, initialTemplate, onTemplateSaved }) => {
   const [title, setTitle] = useState('');
   const [genre, setGenre] = useState('Fantasy');
   const [numChapters, setNumChapters] = useState(5);
@@ -117,9 +118,15 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading, initia
 
       // Save to templates folder via API
       const filename = await saveTemplateToTemplatesFolder(template);
+
+      // Notify parent component that template was saved
+      if (onTemplateSaved) {
+        onTemplateSaved();
+      }
+
       setTemplateMessage({
         type: 'success',
-        text: `Template saved as templates/${filename}! Refresh to see it in the template browser.`
+        text: `Template saved as templates/${filename}! It's now available in the template browser.`
       });
       setTimeout(() => setTemplateMessage(null), 5000);
     } catch (error) {
