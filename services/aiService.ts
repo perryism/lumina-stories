@@ -19,6 +19,7 @@ const getRuntimeSettings = () => {
     localApiUrl: settings.localApiUrl || process.env.LOCAL_API_URL || 'http://localhost:1234/v1',
     localApiKey: settings.localApiKey || process.env.LOCAL_API_KEY || 'not-needed',
     models: settings.models,
+    maxTokens: settings.maxTokens,
   };
 };
 
@@ -201,6 +202,8 @@ export const generateOutline = async (
   if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
     const client = AI_PROVIDER === "local" ? localClient : openaiClient;
     const model = AI_PROVIDER === "local" ? MODELS.local.outline : MODELS.openai.outline;
+    const settings = getRuntimeSettings();
+    const maxTokens = settings.maxTokens[AI_PROVIDER].outline;
 
     const defaultSystemPrompt = "You are a creative story outline generator. Return your response as a JSON array of objects with 'title' and 'summary' fields.";
     const systemPrompt = customSystemPrompt
@@ -217,6 +220,7 @@ export const generateOutline = async (
         { role: "user", content: prompt },
       ],
       temperature: 0.7,
+      max_tokens: maxTokens,
     };
 
     // Configure structured output based on provider
@@ -317,6 +321,9 @@ export const generateOutline = async (
     }
   } else {
     // Gemini implementation
+    const settings = getRuntimeSettings();
+    const maxTokens = settings.maxTokens.gemini.outline;
+
     const response = await debugLogger.logRequestWithTiming(
       {
         provider: 'gemini',
@@ -341,6 +348,7 @@ export const generateOutline = async (
               required: ["title", "summary"],
             },
           },
+          maxOutputTokens: maxTokens,
         },
       })
     );
@@ -603,6 +611,8 @@ export const generateChapterContent = async (
   if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
     const client = AI_PROVIDER === "local" ? localClient : openaiClient;
     const model = AI_PROVIDER === "local" ? MODELS.local.chapter : MODELS.openai.chapter;
+    const settings = getRuntimeSettings();
+    const maxTokens = settings.maxTokens[AI_PROVIDER].chapter;
 
     const defaultSystemPrompt = `You are a professional fiction writer specializing in ${genre} stories. Write engaging, vivid prose with strong character development and compelling narrative flow.
 
@@ -635,12 +645,16 @@ Your goal is to write a chapter that feels like a natural continuation of the st
         ],
         temperature: 0.8,
         top_p: 0.95,
+        max_tokens: maxTokens,
       })
     );
 
     return response.choices[0].message.content || "Failed to generate content.";
   } else {
     // Gemini implementation
+    const settings = getRuntimeSettings();
+    const maxTokens = settings.maxTokens.gemini.chapter;
+
     const response = await debugLogger.logRequestWithTiming(
       {
         provider: 'gemini',
@@ -656,6 +670,7 @@ Your goal is to write a chapter that feels like a natural continuation of the st
           temperature: 0.8,
           topP: 0.95,
           thinkingConfig: { thinkingBudget: 16000 },
+          maxOutputTokens: maxTokens,
         },
       })
     );
@@ -730,6 +745,8 @@ Be specific and concrete. The next chapter writer needs to know EXACTLY where to
     if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
       const client = AI_PROVIDER === "local" ? localClient : openaiClient;
       const model = AI_PROVIDER === "local" ? MODELS.local.summary : MODELS.openai.summary;
+      const settings = getRuntimeSettings();
+      const maxTokens = settings.maxTokens[AI_PROVIDER].summary;
 
       const response = await debugLogger.logRequestWithTiming(
         {
@@ -749,6 +766,7 @@ Be specific and concrete. The next chapter writer needs to know EXACTLY where to
             { role: "user", content: prompt }
           ],
           temperature: 0.3,
+          max_tokens: maxTokens,
         })
       );
 
@@ -757,6 +775,9 @@ Be specific and concrete. The next chapter writer needs to know EXACTLY where to
       return summary;
     } else {
       // Gemini implementation
+      const settings = getRuntimeSettings();
+      const maxTokens = settings.maxTokens.gemini.summary;
+
       const response = await debugLogger.logRequestWithTiming(
         {
           provider: 'gemini',
@@ -770,6 +791,7 @@ Be specific and concrete. The next chapter writer needs to know EXACTLY where to
           contents: prompt,
           config: {
             temperature: 0.3,
+            maxOutputTokens: maxTokens,
           },
         })
       );
@@ -848,6 +870,8 @@ Be thorough and specific. This summary will be used to ensure the next chapter c
     if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
       const client = AI_PROVIDER === "local" ? localClient : openaiClient;
       const model = AI_PROVIDER === "local" ? MODELS.local.summary : MODELS.openai.summary;
+      const settings = getRuntimeSettings();
+      const maxTokens = settings.maxTokens[AI_PROVIDER].summary;
 
       const response = await debugLogger.logRequestWithTiming(
         {
@@ -867,6 +891,7 @@ Be thorough and specific. This summary will be used to ensure the next chapter c
             { role: "user", content: prompt }
           ],
           temperature: 0.3,
+          max_tokens: maxTokens,
         })
       );
 
@@ -875,6 +900,9 @@ Be thorough and specific. This summary will be used to ensure the next chapter c
       return summary;
     } else {
       // Gemini implementation
+      const settings = getRuntimeSettings();
+      const maxTokens = settings.maxTokens.gemini.summary;
+
       const response = await debugLogger.logRequestWithTiming(
         {
           provider: 'gemini',
@@ -888,6 +916,7 @@ Be thorough and specific. This summary will be used to ensure the next chapter c
           contents: prompt,
           config: {
             temperature: 0.3,
+            maxOutputTokens: maxTokens,
           },
         })
       );
@@ -995,6 +1024,8 @@ ${textToSummarize}`;
   if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
     const client = AI_PROVIDER === "local" ? localClient : openaiClient;
     const model = AI_PROVIDER === "local" ? MODELS.local.summary : MODELS.openai.summary;
+    const settings = getRuntimeSettings();
+    const maxTokens = settings.maxTokens[AI_PROVIDER].summary;
 
     const response = await debugLogger.logRequestWithTiming(
       {
@@ -1014,6 +1045,7 @@ ${textToSummarize}`;
           { role: "user", content: prompt },
         ],
         temperature: 0.3, // Lower temperature for more consistent, factual summaries
+        max_tokens: maxTokens,
       })
     );
 
@@ -1023,6 +1055,9 @@ ${textToSummarize}`;
     return summary;
   } else {
     // Gemini implementation
+    const settings = getRuntimeSettings();
+    const maxTokens = settings.maxTokens.gemini.summary;
+
     const response = await debugLogger.logRequestWithTiming(
       {
         provider: 'gemini',
@@ -1036,6 +1071,7 @@ ${textToSummarize}`;
         contents: prompt,
         config: {
           temperature: 0.3, // Lower temperature for more consistent, factual summaries
+          maxOutputTokens: maxTokens,
         },
       })
     );
@@ -1375,6 +1411,8 @@ export const generateNextChapterOutcomes = async (
   if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
     const client = AI_PROVIDER === "local" ? localClient : openaiClient;
     const model = AI_PROVIDER === "local" ? MODELS.local.outline : MODELS.openai.outline;
+    const settings = getRuntimeSettings();
+    const maxTokens = settings.maxTokens[AI_PROVIDER].outline;
 
     const defaultSystemPrompt = "You are a creative story planner. Return your response as a JSON array of objects with 'title', 'summary', and 'description' fields.";
     const systemPrompt = customSystemPrompt
@@ -1391,6 +1429,7 @@ export const generateNextChapterOutcomes = async (
         { role: "user", content: prompt },
       ],
       temperature: 0.8,
+      max_tokens: maxTokens,
     };
 
     // Use structured output for OpenAI if available
@@ -1469,6 +1508,9 @@ export const generateNextChapterOutcomes = async (
     }
   } else {
     // Gemini implementation
+    const settings = getRuntimeSettings();
+    const maxTokens = settings.maxTokens.gemini.outline;
+
     const response = await debugLogger.logRequestWithTiming(
       {
         provider: 'gemini',
@@ -1500,6 +1542,7 @@ export const generateNextChapterOutcomes = async (
             },
             required: ["outcomes"],
           },
+          maxOutputTokens: maxTokens,
         },
       })
     );
