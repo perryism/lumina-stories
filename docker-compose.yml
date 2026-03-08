@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile.api
     container_name: lumina-api
     ports:
-      - "3001:3001"
+      - "4001:3001"
     volumes:
       - ./templates:/app/templates
       - ./libraries:/app/libraries
@@ -26,14 +26,14 @@ services:
       dockerfile: Dockerfile.frontend
     container_name: lumina-frontend
     ports:
-      - "3000:3000"
+      - "3333:3000"
     volumes:
       - ./templates:/app/templates
       - ./libraries:/app/libraries
       - ./genres.yaml:/app/genres.yaml
     environment:
       - NODE_ENV=production
-      - AI_PROVIDER=${AI_PROVIDER:-gemini}
+      - AI_PROVIDER=${AI_PROVIDER:-local}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - API_KEY=${API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -43,7 +43,7 @@ services:
       - LOCAL_MODEL_OUTLINE=${LOCAL_MODEL_OUTLINE}
       - LOCAL_MODEL_CHAPTER=${LOCAL_MODEL_CHAPTER}
       - LOCAL_MODEL_SUMMARY=${LOCAL_MODEL_SUMMARY}
-      - API_SERVER_URL=http://api:3001
+      - API_SERVER_URL=http://api:4001
     depends_on:
       - api
     restart: unless-stopped
