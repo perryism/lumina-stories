@@ -79,6 +79,7 @@ export const OutlineEditor: React.FC<OutlineEditorProps> = ({
         <div className="flex flex-col sm:flex-row gap-3">
           {onSave && (
             <button
+              type="button"
               onClick={onSave}
               className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2"
             >

@@ -629,14 +629,29 @@ export const saveStory = async (state: StoryState): Promise<SavedStory> => {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to save story');
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to save story');
+      } else {
+        // Server returned HTML or other non-JSON response
+        throw new Error('Story server not responding correctly. Please start it with: npm run server');
+      }
     }
 
     return savedStory;
   } catch (error) {
     console.error('Failed to save story:', error);
-    throw new Error('Failed to save story. Make sure the server is running (npm run server).');
+    // Check if it's a network error (server not running)
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Story server not running. Please start it with: npm run server');
+    }
+    // Re-throw the error with a more helpful message if it's not already a custom error
+    if (error instanceof Error && !error.message.includes('server')) {
+      throw new Error('Failed to save story. Make sure the server is running (npm run server).');
+    }
+    throw error;
   }
 };
 
@@ -653,7 +668,9 @@ export const loadStory = async (storyId: string): Promise<StoryState | null> => 
     console.log('[loadStory] Story state:', {
       title: story.state.title,
       currentStep: story.state.currentStep,
-      outlineLength: story.state.outline?.length
+      outlineLength: story.state.outline?.length,
+      hasSystemPrompt: !!story.state.systemPrompt,
+      systemPromptLength: story.state.systemPrompt?.length || 0
     });
   }
   return story ? story.state : null;

@@ -33,14 +33,21 @@ export const saveTemplateToTemplatesFolder = async (template: StoryTemplate): Pr
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to save template');
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to save template');
+      } else {
+        // Server returned HTML or other non-JSON response
+        throw new Error('Template server not responding correctly. Please start it with: npm run server');
+      }
     }
 
     return filename;
   } catch (error) {
-    // If API is not available, fall back to download
-    if ((error as Error).message.includes('fetch')) {
+    // Check if it's a network error (server not running)
+    if (error instanceof TypeError && error.message.includes('fetch')) {
       console.warn('Template server not running, falling back to download');
       const blob = new Blob([yamlContent], { type: 'text/yaml' });
       const url = URL.createObjectURL(blob);

@@ -257,6 +257,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
           )}
           {onSave && (
             <button
+              type="button"
               onClick={onSave}
               className="w-full px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
             >

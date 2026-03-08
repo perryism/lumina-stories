@@ -68,9 +68,13 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   // Update local system prompt when prop changes or when it's empty
   useEffect(() => {
     const updatePrompt = async () => {
+      console.log('[ManualChapterGenerator] systemPrompt prop:', systemPrompt ? `${systemPrompt.substring(0, 50)}...` : 'undefined');
+      console.log('[ManualChapterGenerator] localSystemPrompt:', localSystemPrompt ? `${localSystemPrompt.substring(0, 50)}...` : 'undefined');
       if (systemPrompt) {
+        console.log('[ManualChapterGenerator] Setting localSystemPrompt from prop');
         setLocalSystemPrompt(systemPrompt);
       } else if (!localSystemPrompt) {
+        console.log('[ManualChapterGenerator] Loading default system prompt for genre:', genre);
         try {
           const prompt = await getGenreSystemPrompt(genre);
           setLocalSystemPrompt(prompt);
@@ -696,6 +700,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
             <div className="pt-4 border-t border-slate-100 space-y-2">
               {onSave && (
                 <button
+                  type="button"
                   onClick={onSave}
                   className="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-green-700 transition-all flex items-center justify-center gap-2"
                 >
