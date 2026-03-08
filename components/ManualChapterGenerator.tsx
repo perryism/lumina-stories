@@ -802,6 +802,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                       </div>
                       {!showForeshadowingForm && (
                         <button
+                          type="button"
                           onClick={handleAddForeshadowing}
                           className="text-xs px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
                         >
@@ -885,6 +886,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                                 <p className="font-medium text-amber-900 flex-1">{note.revealDescription}</p>
                                 <div className="flex gap-1">
                                   <button
+                                    type="button"
                                     onClick={() => handleEditForeshadowing(note)}
                                     className="text-blue-600 hover:text-blue-800"
                                     title="Edit"
@@ -895,6 +897,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                                   </button>
                                   {onDeleteForeshadowingNote && (
                                     <button
+                                      type="button"
                                       onClick={() => onDeleteForeshadowingNote(note.id)}
                                       className="text-red-600 hover:text-red-800"
                                       title="Delete"
@@ -932,6 +935,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                                 </div>
                                 <div className="flex gap-1">
                                   <button
+                                    type="button"
                                     onClick={() => handleEditForeshadowing(note)}
                                     className="text-blue-600 hover:text-blue-800"
                                     title="Edit"
@@ -942,6 +946,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                                   </button>
                                   {onDeleteForeshadowingNote && (
                                     <button
+                                      type="button"
                                       onClick={() => onDeleteForeshadowingNote(note.id)}
                                       className="text-red-600 hover:text-red-800"
                                       title="Delete"
