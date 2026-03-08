@@ -8,6 +8,7 @@ import { StoryViewer } from './components/StoryViewer';
 import { TemplateBrowser } from './components/TemplateBrowser';
 import { ForeshadowingManager } from './components/ForeshadowingManager';
 import { Library } from './components/Library';
+import { Settings } from './components/Settings';
 import { StoryState, Chapter, Character, ReadingLevel, ChapterOutcome, StoryTemplate, ForeshadowingNote } from './types';
 import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt, regenerateChapterContent, generateNextChapterOutcomes, validateChapterContent, generateChapterSuggestions, generateDetailedChapterSummary } from './services/aiService';
 import { saveStory, loadStory } from './services/libraryService';
@@ -74,6 +75,7 @@ const App: React.FC = () => {
   const [showTemplateBrowser, setShowTemplateBrowser] = useState(false);
   const [templateToLoad, setTemplateToLoad] = useState<StoryTemplate | null>(null);
   const [showLibrary, setShowLibrary] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [currentStoryId, setCurrentStoryId] = useState<string | null>(null);
   const [templateRefreshTrigger, setTemplateRefreshTrigger] = useState(0);
   const [validationPrompt, setValidationPrompt] = useState<{
@@ -784,6 +786,10 @@ const App: React.FC = () => {
     setShowLibrary(true);
   };
 
+  const handleSettingsClick = () => {
+    setShowSettings(true);
+  };
+
   const handleLoadStory = async (storyId: string) => {
     const loadedState = await loadStory(storyId);
     if (loadedState) {
@@ -863,6 +869,7 @@ const App: React.FC = () => {
       onTemplatesClick={handleTemplatesClick}
       onNewStoryClick={handleNewStoryClick}
       onLibraryClick={handleLibraryClick}
+      onSettingsClick={handleSettingsClick}
     >
       {error && (
         <div className="max-w-2xl mx-auto mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl flex items-center justify-between">
@@ -901,6 +908,12 @@ const App: React.FC = () => {
         <Library
           onLoadStory={handleLoadStory}
           onClose={() => setShowLibrary(false)}
+        />
+      )}
+
+      {showSettings && (
+        <Settings
+          onClose={() => setShowSettings(false)}
         />
       )}
 

@@ -3,24 +3,75 @@ import { GoogleGenAI, Type } from "@google/genai";
 import OpenAI from "openai";
 import { Character, Chapter, ReadingLevel, ChapterOutcome, ForeshadowingNote } from "../types";
 import { getSelectedModel } from "../utils/modelSelection";
+import { getSettings } from "../utils/settingsService";
+import { debugLogger } from "../utils/debugLogger";
 
 // Configuration
 export type AIProvider = "gemini" | "openai" | "local";
 
+// Get runtime settings (prioritize localStorage over env vars)
+const getRuntimeSettings = () => {
+  const settings = getSettings();
+  return {
+    provider: settings.provider,
+    geminiApiKey: settings.geminiApiKey || process.env.GEMINI_API_KEY || process.env.API_KEY || '',
+    openaiApiKey: settings.openaiApiKey || process.env.OPENAI_API_KEY || '',
+    localApiUrl: settings.localApiUrl || process.env.LOCAL_API_URL || 'http://localhost:1234/v1',
+    localApiKey: settings.localApiKey || process.env.LOCAL_API_KEY || 'not-needed',
+    models: settings.models,
+  };
+};
+
+// Initialize with default values (will be updated at runtime)
 const AI_PROVIDER: AIProvider = (process.env.AI_PROVIDER as AIProvider) || "gemini";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const LOCAL_API_URL = process.env.LOCAL_API_URL || 'http://localhost:1234/v1';
 const LOCAL_API_KEY = process.env.LOCAL_API_KEY || 'not-needed';
 
-// Initialize clients
-const geminiClient = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-const openaiClient = new OpenAI({ apiKey: OPENAI_API_KEY, dangerouslyAllowBrowser: true });
-const localClient = new OpenAI({
+// Initialize clients (these will be recreated with runtime settings when needed)
+let geminiClient = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+let openaiClient = new OpenAI({ apiKey: OPENAI_API_KEY, dangerouslyAllowBrowser: true });
+let localClient = new OpenAI({
   apiKey: LOCAL_API_KEY,
   baseURL: LOCAL_API_URL,
   dangerouslyAllowBrowser: true
 });
+
+// Helper to get the current AI provider from settings
+const getAIProvider = (): AIProvider => {
+  const settings = getRuntimeSettings();
+  return settings.provider;
+};
+
+// Helper to get/create clients with current settings
+const getGeminiClient = () => {
+  const settings = getRuntimeSettings();
+  if (settings.geminiApiKey !== GEMINI_API_KEY) {
+    geminiClient = new GoogleGenAI({ apiKey: settings.geminiApiKey });
+  }
+  return geminiClient;
+};
+
+const getOpenAIClient = () => {
+  const settings = getRuntimeSettings();
+  if (settings.openaiApiKey !== OPENAI_API_KEY) {
+    openaiClient = new OpenAI({ apiKey: settings.openaiApiKey, dangerouslyAllowBrowser: true });
+  }
+  return openaiClient;
+};
+
+const getLocalClient = () => {
+  const settings = getRuntimeSettings();
+  if (settings.localApiUrl !== LOCAL_API_URL || settings.localApiKey !== LOCAL_API_KEY) {
+    localClient = new OpenAI({
+      apiKey: settings.localApiKey,
+      baseURL: settings.localApiUrl,
+      dangerouslyAllowBrowser: true
+    });
+  }
+  return localClient;
+};
 
 // Helper function to get the selected local model
 // Falls back to task-specific models if defined, otherwise uses the selected model
@@ -40,7 +91,21 @@ const getLocalModel = (taskType: 'outline' | 'chapter' | 'summary'): string => {
   return getSelectedModel();
 };
 
-// Model configurations
+// Model configurations - now uses runtime settings
+const getModels = () => {
+  const settings = getRuntimeSettings();
+  return {
+    gemini: settings.models.gemini,
+    openai: settings.models.openai,
+    local: {
+      get outline() { return settings.models.local.outline || getLocalModel('outline'); },
+      get chapter() { return settings.models.local.chapter || getLocalModel('chapter'); },
+      get summary() { return settings.models.local.summary || getLocalModel('summary'); },
+    },
+  };
+};
+
+// Legacy MODELS object for backward compatibility
 const MODELS = {
   gemini: {
     outline: "gemini-3-flash-preview",
@@ -191,7 +256,16 @@ export const generateOutline = async (
       }
     }
 
-    const response = await client.chat.completions.create(requestParams);
+    const response = await debugLogger.logRequestWithTiming(
+      {
+        provider: AI_PROVIDER,
+        endpoint: 'chat.completions.create',
+        model: model,
+        requestType: 'generateOutline',
+        requestData: { numChapters, genre, readingLevel },
+      },
+      () => client.chat.completions.create(requestParams)
+    );
 
     try {
       let content = response.choices[0].message.content || "{}";
@@ -243,24 +317,33 @@ export const generateOutline = async (
     }
   } else {
     // Gemini implementation
-    const response = await geminiClient.models.generateContent({
-      model: MODELS.gemini.outline,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              summary: { type: Type.STRING },
+    const response = await debugLogger.logRequestWithTiming(
+      {
+        provider: 'gemini',
+        endpoint: 'models.generateContent',
+        model: MODELS.gemini.outline,
+        requestType: 'generateOutline',
+        requestData: { numChapters, genre, readingLevel },
+      },
+      () => geminiClient.models.generateContent({
+        model: MODELS.gemini.outline,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                summary: { type: Type.STRING },
+              },
+              required: ["title", "summary"],
             },
-            required: ["title", "summary"],
           },
         },
-      },
-    });
+      })
+    );
 
     try {
       const json = JSON.parse(response.text || "[]");
@@ -533,31 +616,49 @@ CRITICAL: When writing chapters that follow previous chapters, you MUST maintain
 Your goal is to write a chapter that feels like a natural continuation of the story, not a standalone piece.`;
     const systemPrompt = customSystemPrompt || defaultSystemPrompt;
 
-    const response = await client.chat.completions.create({
-      model: model,
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt,
-        },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.8,
-      top_p: 0.95,
-    });
+    const response = await debugLogger.logRequestWithTiming(
+      {
+        provider: AI_PROVIDER,
+        endpoint: 'chat.completions.create',
+        model: model,
+        requestType: 'generateChapterContent',
+        requestData: { chapterIndex: chapterIndex + 1, chapterTitle: currentChapter.title },
+      },
+      () => client.chat.completions.create({
+        model: model,
+        messages: [
+          {
+            role: "system",
+            content: systemPrompt,
+          },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.8,
+        top_p: 0.95,
+      })
+    );
 
     return response.choices[0].message.content || "Failed to generate content.";
   } else {
     // Gemini implementation
-    const response = await geminiClient.models.generateContent({
-      model: MODELS.gemini.chapter,
-      contents: prompt,
-      config: {
-        temperature: 0.8,
-        topP: 0.95,
-        thinkingConfig: { thinkingBudget: 16000 },
+    const response = await debugLogger.logRequestWithTiming(
+      {
+        provider: 'gemini',
+        endpoint: 'models.generateContent',
+        model: MODELS.gemini.chapter,
+        requestType: 'generateChapterContent',
+        requestData: { chapterIndex: chapterIndex + 1, chapterTitle: currentChapter.title },
       },
-    });
+      () => geminiClient.models.generateContent({
+        model: MODELS.gemini.chapter,
+        contents: prompt,
+        config: {
+          temperature: 0.8,
+          topP: 0.95,
+          thinkingConfig: { thinkingBudget: 16000 },
+        },
+      })
+    );
 
     return response.text || "Failed to generate content.";
   }
@@ -630,30 +731,48 @@ Be specific and concrete. The next chapter writer needs to know EXACTLY where to
       const client = AI_PROVIDER === "local" ? localClient : openaiClient;
       const model = AI_PROVIDER === "local" ? MODELS.local.summary : MODELS.openai.summary;
 
-      const response = await client.chat.completions.create({
-        model: model,
-        messages: [
-          {
-            role: "system",
-            content: "You are a story continuity specialist. Your job is to analyze how a chapter ends and identify exactly what needs to happen next to maintain seamless story flow."
-          },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.3,
-      });
+      const response = await debugLogger.logRequestWithTiming(
+        {
+          provider: AI_PROVIDER,
+          endpoint: 'chat.completions.create',
+          model: model,
+          requestType: 'generateLastChapterContinuationSummary',
+          requestData: { chapterId: chapter.id, chapterTitle: chapter.title },
+        },
+        () => client.chat.completions.create({
+          model: model,
+          messages: [
+            {
+              role: "system",
+              content: "You are a story continuity specialist. Your job is to analyze how a chapter ends and identify exactly what needs to happen next to maintain seamless story flow."
+            },
+            { role: "user", content: prompt }
+          ],
+          temperature: 0.3,
+        })
+      );
 
       const summary = response.choices[0].message.content || '';
       console.log(`[generateLastChapterContinuationSummary] Generated continuation summary length: ${summary.length} chars`);
       return summary;
     } else {
       // Gemini implementation
-      const response = await geminiClient.models.generateContent({
-        model: MODELS.gemini.summary,
-        contents: prompt,
-        config: {
-          temperature: 0.3,
+      const response = await debugLogger.logRequestWithTiming(
+        {
+          provider: 'gemini',
+          endpoint: 'models.generateContent',
+          model: MODELS.gemini.summary,
+          requestType: 'generateLastChapterContinuationSummary',
+          requestData: { chapterId: chapter.id, chapterTitle: chapter.title },
         },
-      });
+        () => geminiClient.models.generateContent({
+          model: MODELS.gemini.summary,
+          contents: prompt,
+          config: {
+            temperature: 0.3,
+          },
+        })
+      );
 
       const summary = response.text || '';
       console.log(`[generateLastChapterContinuationSummary] Generated continuation summary length: ${summary.length} chars`);
@@ -730,30 +849,48 @@ Be thorough and specific. This summary will be used to ensure the next chapter c
       const client = AI_PROVIDER === "local" ? localClient : openaiClient;
       const model = AI_PROVIDER === "local" ? MODELS.local.summary : MODELS.openai.summary;
 
-      const response = await client.chat.completions.create({
-        model: model,
-        messages: [
-          {
-            role: "system",
-            content: "You are a professional story analyst specializing in maintaining narrative continuity. Generate comprehensive, detailed summaries that capture all important information for future chapters."
-          },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.3,
-      });
+      const response = await debugLogger.logRequestWithTiming(
+        {
+          provider: AI_PROVIDER,
+          endpoint: 'chat.completions.create',
+          model: model,
+          requestType: 'generateDetailedChapterSummary',
+          requestData: { chapterId: chapter.id, chapterTitle: chapter.title },
+        },
+        () => client.chat.completions.create({
+          model: model,
+          messages: [
+            {
+              role: "system",
+              content: "You are a professional story analyst specializing in maintaining narrative continuity. Generate comprehensive, detailed summaries that capture all important information for future chapters."
+            },
+            { role: "user", content: prompt }
+          ],
+          temperature: 0.3,
+        })
+      );
 
       const summary = response.choices[0].message.content || '';
       console.log(`[generateDetailedChapterSummary] Generated summary length: ${summary.length} chars`);
       return summary;
     } else {
       // Gemini implementation
-      const response = await geminiClient.models.generateContent({
-        model: MODELS.gemini.summary,
-        contents: prompt,
-        config: {
-          temperature: 0.3,
+      const response = await debugLogger.logRequestWithTiming(
+        {
+          provider: 'gemini',
+          endpoint: 'models.generateContent',
+          model: MODELS.gemini.summary,
+          requestType: 'generateDetailedChapterSummary',
+          requestData: { chapterId: chapter.id, chapterTitle: chapter.title },
         },
-      });
+        () => geminiClient.models.generateContent({
+          model: MODELS.gemini.summary,
+          contents: prompt,
+          config: {
+            temperature: 0.3,
+          },
+        })
+      );
 
       const summary = response.text || '';
       console.log(`[generateDetailedChapterSummary] Generated summary length: ${summary.length} chars`);
@@ -859,17 +996,26 @@ ${textToSummarize}`;
     const client = AI_PROVIDER === "local" ? localClient : openaiClient;
     const model = AI_PROVIDER === "local" ? MODELS.local.summary : MODELS.openai.summary;
 
-    const response = await client.chat.completions.create({
-      model: model,
-      messages: [
-        {
-          role: "system",
-          content: "You are a professional story editor creating detailed chapter summaries for story continuity. Your summaries must capture ALL important plot points, character developments, revelations, and story elements in detail. CRITICALLY, you must clearly distinguish between what has been RESOLVED and what remains UNRESOLVED. The next chapter writer needs to know what plot threads to continue, what questions to answer, and what conflicts to develop. Be specific with names, events, discoveries, and especially with unresolved plot threads, pending decisions, and cliffhangers. These summaries are critical for maintaining story continuity and ensuring the next chapter continues the story logically.",
-        },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.3, // Lower temperature for more consistent, factual summaries
-    });
+    const response = await debugLogger.logRequestWithTiming(
+      {
+        provider: AI_PROVIDER,
+        endpoint: 'chat.completions.create',
+        model: model,
+        requestType: 'summarizePreviousChapters',
+        requestData: { chapterCount: chaptersWithContent.length },
+      },
+      () => client.chat.completions.create({
+        model: model,
+        messages: [
+          {
+            role: "system",
+            content: "You are a professional story editor creating detailed chapter summaries for story continuity. Your summaries must capture ALL important plot points, character developments, revelations, and story elements in detail. CRITICALLY, you must clearly distinguish between what has been RESOLVED and what remains UNRESOLVED. The next chapter writer needs to know what plot threads to continue, what questions to answer, and what conflicts to develop. Be specific with names, events, discoveries, and especially with unresolved plot threads, pending decisions, and cliffhangers. These summaries are critical for maintaining story continuity and ensuring the next chapter continues the story logically.",
+          },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.3, // Lower temperature for more consistent, factual summaries
+      })
+    );
 
     const summary = response.choices[0].message.content || "";
     console.log(`[Summary] Generated summary for ${chaptersWithContent.length} chapter(s) (${summary.length} chars):`);
@@ -877,13 +1023,22 @@ ${textToSummarize}`;
     return summary;
   } else {
     // Gemini implementation
-    const response = await geminiClient.models.generateContent({
-      model: MODELS.gemini.summary,
-      contents: prompt,
-      config: {
-        temperature: 0.3, // Lower temperature for more consistent, factual summaries
+    const response = await debugLogger.logRequestWithTiming(
+      {
+        provider: 'gemini',
+        endpoint: 'models.generateContent',
+        model: MODELS.gemini.summary,
+        requestType: 'summarizePreviousChapters',
+        requestData: { chapterCount: chaptersWithContent.length },
       },
-    });
+      () => geminiClient.models.generateContent({
+        model: MODELS.gemini.summary,
+        contents: prompt,
+        config: {
+          temperature: 0.3, // Lower temperature for more consistent, factual summaries
+        },
+      })
+    );
 
     const summary = response.text || "";
     console.log(`[Summary] Generated summary for ${chaptersWithContent.length} chapter(s) (${summary.length} chars):`);
@@ -1269,7 +1424,16 @@ export const generateNextChapterOutcomes = async (
       };
     }
 
-    const response = await client.chat.completions.create(requestParams);
+    const response = await debugLogger.logRequestWithTiming(
+      {
+        provider: AI_PROVIDER,
+        endpoint: 'chat.completions.create',
+        model: model,
+        requestType: 'generateNextChapterOutcomes',
+        requestData: { completedChaptersCount: completedChapters.length },
+      },
+      () => client.chat.completions.create(requestParams)
+    );
 
     try {
       let content = response.choices[0].message.content || "{}";
@@ -1305,31 +1469,40 @@ export const generateNextChapterOutcomes = async (
     }
   } else {
     // Gemini implementation
-    const response = await geminiClient.models.generateContent({
-      model: MODELS.gemini.outline,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            outcomes: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  title: { type: Type.STRING },
-                  summary: { type: Type.STRING },
-                  description: { type: Type.STRING },
+    const response = await debugLogger.logRequestWithTiming(
+      {
+        provider: 'gemini',
+        endpoint: 'models.generateContent',
+        model: MODELS.gemini.outline,
+        requestType: 'generateNextChapterOutcomes',
+        requestData: { completedChaptersCount: completedChapters.length },
+      },
+      () => geminiClient.models.generateContent({
+        model: MODELS.gemini.outline,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              outcomes: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    title: { type: Type.STRING },
+                    summary: { type: Type.STRING },
+                    description: { type: Type.STRING },
+                  },
+                  required: ["title", "summary", "description"],
                 },
-                required: ["title", "summary", "description"],
               },
             },
+            required: ["outcomes"],
           },
-          required: ["outcomes"],
         },
-      },
-    });
+      })
+    );
 
     const parsed = JSON.parse(response.text);
     const outcomes = parsed.outcomes || [];

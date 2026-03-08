@@ -13,9 +13,10 @@ interface LayoutProps {
   onTemplatesClick?: () => void;
   onNewStoryClick?: () => void;
   onLibraryClick?: () => void;
+  onSettingsClick?: () => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, onTemplatesClick, onNewStoryClick, onLibraryClick }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, onTemplatesClick, onNewStoryClick, onLibraryClick, onSettingsClick }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedModel, setSelectedModelState] = useState<string>('');
   const [availableModels, setAvailableModels] = useState<string[]>([]);
@@ -50,6 +51,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, onTemplatesClick, onNe
     setIsMobileMenuOpen(false);
   };
 
+  const handleSettingsClick = () => {
+    onSettingsClick?.();
+    setIsMobileMenuOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
@@ -74,6 +80,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, onTemplatesClick, onNe
               className="text-sm font-medium text-slate-500 hover:text-indigo-600 cursor-pointer transition-colors"
             >
               Templates
+            </span>
+            <span
+              onClick={onSettingsClick}
+              className="text-sm font-medium text-slate-500 hover:text-indigo-600 cursor-pointer transition-colors"
+            >
+              Settings
             </span>
 
             {/* Model Selector - Only show for local provider with multiple models */}
@@ -133,6 +145,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, onTemplatesClick, onNe
                 className="text-sm font-medium text-slate-500 hover:text-indigo-600 cursor-pointer transition-colors py-2"
               >
                 Templates
+              </span>
+              <span
+                onClick={handleSettingsClick}
+                className="text-sm font-medium text-slate-500 hover:text-indigo-600 cursor-pointer transition-colors py-2"
+              >
+                Settings
               </span>
 
               {/* Model Selector - Mobile */}
