@@ -447,6 +447,50 @@ const App: React.FC = () => {
     }, 100);
   };
 
+  const handleResetAllChapters = () => {
+    // Confirm with user before resetting all chapters
+    if (!window.confirm('Are you sure you want to clear all generated chapters? This will reset all chapters to pending status. You can undo individual chapters later from their revision history.')) {
+      return;
+    }
+
+    const updatedOutline = state.outline.map(chapter => {
+      // Save current version to revision history before clearing
+      if (chapter.content) {
+        const revisionHistory = chapter.revisionHistory || [];
+        revisionHistory.push({
+          content: chapter.content,
+          detailedSummary: chapter.detailedSummary,
+          timestamp: Date.now(),
+          feedback: 'Reset all chapters'
+        });
+        return {
+          ...chapter,
+          content: '',
+          detailedSummary: undefined,
+          status: 'pending' as const,
+          revisionHistory
+        };
+      } else {
+        // If no content, just reset to pending
+        return {
+          ...chapter,
+          content: '',
+          detailedSummary: undefined,
+          status: 'pending' as const
+        };
+      }
+    });
+
+    setState(prev => ({ ...prev, outline: updatedOutline }));
+    setSuccessMessage('All chapters have been reset to pending status.');
+    setTimeout(() => setSuccessMessage(null), 3000);
+
+    // Update prompt for next chapter after clearing
+    setTimeout(() => {
+      updatePromptForNextChapter();
+    }, 100);
+  };
+
   const handleSelectOutcome = (outcome: ChapterOutcome) => {
     // Add a new chapter based on the selected outcome
     const newChapterId = state.outline.length + 1;
@@ -972,6 +1016,7 @@ const App: React.FC = () => {
             onGenerateNext={handleGenerateNextChapter}
             onRegenerateChapter={handleRegenerateChapter}
             onClearChapter={handleClearChapter}
+            onResetAllChapters={handleResetAllChapters}
             onViewStory={handleViewStory}
             isGenerating={isLoading}
             isContinuousMode={isContinuousMode}

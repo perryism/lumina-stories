@@ -18,6 +18,7 @@ interface ManualChapterGeneratorProps {
   onGenerateNext: (customPrompt: string) => void;
   onRegenerateChapter?: (chapterIndex: number, feedback: string, acceptanceCriteria?: string) => void;
   onClearChapter?: (chapterIndex: number) => void;
+  onResetAllChapters?: () => void;
   onViewStory: () => void;
   isGenerating: boolean;
   isContinuousMode?: boolean;
@@ -44,6 +45,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   onUpdateSystemPrompt,
   onGenerateNext,
   onRegenerateChapter,
+  onResetAllChapters,
   onViewStory,
   isGenerating,
   isContinuousMode = false,
@@ -722,6 +724,20 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                     <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
                   </svg>
                   {allCompleted ? 'View Complete Story' : 'See it in Reader'}
+                </button>
+              )}
+
+              {/* Reset All Chapters Button - Show if at least one chapter is completed */}
+              {onResetAllChapters && chapters.some(ch => ch.status === 'completed') && (
+                <button
+                  type="button"
+                  onClick={onResetAllChapters}
+                  className="w-full bg-red-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-red-700 transition-all flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                  </svg>
+                  Reset All Chapters
                 </button>
               )}
             </div>
