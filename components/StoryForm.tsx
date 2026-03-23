@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Character, ReadingLevel, StoryTemplate } from '../types';
 import { getDefaultSystemPrompt } from '../services/aiService';
 import { saveTemplateToTemplatesFolder, saveTemplateToStorage } from '../utils/templateService';
@@ -26,6 +26,12 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading, initia
   const [templateMessage, setTemplateMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [genres, setGenres] = useState<string[]>([]);
 
+  // Ref to prevent the genre-change effect from overriding a system prompt set by a template
+  const skipGenrePromptRef = useRef(false);
+  // Ref to always have the latest genre value without stale closures
+  const currentGenreRef = useRef(genre);
+  currentGenreRef.current = genre;
+
   // Load genres from config on mount
   useEffect(() => {
     const loadGenres = async () => {
@@ -41,8 +47,12 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading, initia
     loadGenres();
   }, []);
 
-  // Update system prompt when genre changes
+  // Update system prompt when genre changes (skipped when template loading sets it)
   useEffect(() => {
+    if (skipGenrePromptRef.current) {
+      skipGenrePromptRef.current = false;
+      return;
+    }
     const updatePrompt = async () => {
       try {
         const prompt = await getGenreSystemPrompt(genre);
@@ -59,7 +69,6 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading, initia
   useEffect(() => {
     if (initialTemplate) {
       setTitle(initialTemplate.title);
-      setGenre(initialTemplate.genre);
       setNumChapters(initialTemplate.numChapters);
       setReadingLevel(initialTemplate.readingLevel);
       setInitialIdea(initialTemplate.plotOutline);
@@ -69,9 +78,16 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading, initia
       }
 
       if (initialTemplate.systemPrompt) {
+        // If genre is actually changing, flag the genre effect to skip its update so
+        // it doesn't overwrite the template's custom system prompt.
+        if (initialTemplate.genre !== currentGenreRef.current) {
+          skipGenrePromptRef.current = true;
+        }
         setSystemPrompt(initialTemplate.systemPrompt);
         setShowAdvanced(true);
       }
+
+      setGenre(initialTemplate.genre);
     }
   }, [initialTemplate]);
 
