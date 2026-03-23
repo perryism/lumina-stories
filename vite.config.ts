@@ -8,6 +8,10 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        watch: {
+          // Ignore the templates folder so saving a template doesn't trigger a page reload
+          ignored: ['**/templates/**', '**/libraries/**'],
+        },
       },
       plugins: [react()],
       define: {
