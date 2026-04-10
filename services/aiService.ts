@@ -23,8 +23,7 @@ const getRuntimeSettings = () => {
   };
 };
 
-// Initialize with default values (will be updated at runtime)
-const AI_PROVIDER: AIProvider = (process.env.AI_PROVIDER as AIProvider) || "gemini";
+// AI_PROVIDER is read from settings at call time in each function via getAIProvider()
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const LOCAL_API_URL = process.env.LOCAL_API_URL || 'http://localhost:1234/v1';
@@ -106,23 +105,11 @@ const getModels = () => {
   };
 };
 
-// Legacy MODELS object for backward compatibility
+// MODELS delegates to getModels() so it always reflects the current settings
 const MODELS = {
-  gemini: {
-    outline: "gemini-3-flash-preview",
-    chapter: "gemini-3-pro-preview",
-    summary: "gemini-3-flash-preview",
-  },
-  openai: {
-    outline: "gpt-4o-mini",
-    chapter: "gpt-4o",
-    summary: "gpt-4o-mini",
-  },
-  local: {
-    get outline() { return getLocalModel('outline'); },
-    get chapter() { return getLocalModel('chapter'); },
-    get summary() { return getLocalModel('summary'); },
-  },
+  get gemini() { return getModels().gemini; },
+  get openai() { return getModels().openai; },
+  get local() { return getModels().local; },
 };
 
 // Helper function to get reading level instructions
@@ -199,11 +186,12 @@ export const generateOutline = async (
     Ensure the themes, complexity, and content are appropriate for ${readingLevelNote}.
   `;
 
-  if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
-    const client = AI_PROVIDER === "local" ? localClient : openaiClient;
-    const model = AI_PROVIDER === "local" ? MODELS.local.outline : MODELS.openai.outline;
+  const provider = getAIProvider();
+  if (provider === "openai" || provider === "local") {
+    const client = provider === "local" ? getLocalClient() : getOpenAIClient();
+    const model = provider === "local" ? MODELS.local.outline : MODELS.openai.outline;
     const settings = getRuntimeSettings();
-    const maxTokens = settings.maxTokens[AI_PROVIDER].outline;
+    const maxTokens = settings.maxTokens[provider].outline;
 
     const defaultSystemPrompt = "You are a creative story outline generator. Return your response as a JSON array of objects with 'title' and 'summary' fields.";
     const systemPrompt = customSystemPrompt
@@ -224,9 +212,9 @@ export const generateOutline = async (
     };
 
     // Configure structured output based on provider
-    if (AI_PROVIDER === "openai") {
+    if (provider === "openai") {
       requestParams.response_format = { type: "json_object" };
-    } else if (AI_PROVIDER === "local") {
+    } else if (provider === "local") {
       // Try to use json_schema for local models (LM Studio, etc.)
       try {
         requestParams.response_format = {
@@ -256,13 +244,13 @@ export const generateOutline = async (
           }
         };
       } catch (e) {
-        console.log(`[${AI_PROVIDER}] json_schema not supported, using plain text`);
+        console.log(`[${provider}] json_schema not supported, using plain text`);
       }
     }
 
     const response = await debugLogger.logRequestWithTiming(
       {
-        provider: AI_PROVIDER,
+        provider: provider,
         endpoint: 'chat.completions.create',
         model: model,
         requestType: 'generateOutline',
@@ -273,22 +261,17 @@ export const generateOutline = async (
 
     try {
       let content = response.choices[0].message.content || "{}";
-      console.log(`[${AI_PROVIDER}] Raw response:`, content);
+      console.log(`[${provider}] Raw response:`, content);
 
       // Strip markdown code blocks if present (common with local models without structured output)
       content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-      console.log(`[${AI_PROVIDER}] Cleaned content:`, content);
+      console.log(`[${provider}] Cleaned content:`, content);
 
       const parsed = JSON.parse(content);
-      console.log(`[${AI_PROVIDER}] Parsed JSON:`, parsed);
+      console.log(`[${provider}] Parsed JSON:`, parsed);
 
-      // Try to extract chapters from various possible structures
-      // 1. Structured output format: { chapters: [...] }
-      // 2. Direct array format: [...]
-      // 3. Other wrapper formats: { outline: [...] }
       let chapters = parsed.chapters || parsed.outline || parsed;
 
-      // If parsed is an object with a single array property, use that
       if (!Array.isArray(chapters) && typeof chapters === 'object') {
         const values = Object.values(chapters);
         if (values.length === 1 && Array.isArray(values[0])) {
@@ -296,17 +279,14 @@ export const generateOutline = async (
         }
       }
 
-      // If still not an array, wrap it or throw error
       if (!Array.isArray(chapters)) {
-        console.error(`[${AI_PROVIDER}] Expected array but got:`, typeof chapters, chapters);
+        console.error(`[${provider}] Expected array but got:`, typeof chapters, chapters);
         throw new Error("Response is not in expected array format");
       }
 
-      console.log(`[${AI_PROVIDER}] Extracted ${chapters.length} chapters`);
-
-      // Ensure we only return the requested number of chapters
+      console.log(`[${provider}] Extracted ${chapters.length} chapters`);
       const limitedChapters = chapters.slice(0, numChapters);
-      console.log(`[${AI_PROVIDER}] Limiting to ${numChapters} chapters (was ${chapters.length})`);
+      console.log(`[${provider}] Limiting to ${numChapters} chapters (was ${chapters.length})`);
 
       return limitedChapters.map((item: any, index: number) => ({
         id: index + 1,
@@ -316,7 +296,7 @@ export const generateOutline = async (
         status: "pending",
       }));
     } catch (e) {
-      console.error(`Failed to parse ${AI_PROVIDER} outline JSON`, e);
+      console.error(`Failed to parse ${provider} outline JSON`, e);
       throw new Error("Failed to generate a valid outline structure.");
     }
   } else {
@@ -332,7 +312,7 @@ export const generateOutline = async (
         requestType: 'generateOutline',
         requestData: { numChapters, genre, readingLevel },
       },
-      () => geminiClient.models.generateContent({
+      () => getGeminiClient().models.generateContent({
         model: MODELS.gemini.outline,
         contents: prompt,
         config: {
@@ -355,8 +335,6 @@ export const generateOutline = async (
 
     try {
       const json = JSON.parse(response.text || "[]");
-
-      // Ensure we only return the requested number of chapters
       const limitedChapters = json.slice(0, numChapters);
       console.log(`[gemini] Limiting to ${numChapters} chapters (was ${json.length})`);
 
@@ -608,11 +586,12 @@ export const generateChapterContent = async (
     console.log(`[Chapter ${chapterIndex + 1}] No previous chapters - this is the first chapter`);
   }
 
-  if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
-    const client = AI_PROVIDER === "local" ? localClient : openaiClient;
-    const model = AI_PROVIDER === "local" ? MODELS.local.chapter : MODELS.openai.chapter;
+  const provider = getAIProvider();
+  if (provider === "openai" || provider === "local") {
+    const client = provider === "local" ? getLocalClient() : getOpenAIClient();
+    const model = provider === "local" ? MODELS.local.chapter : MODELS.openai.chapter;
     const settings = getRuntimeSettings();
-    const maxTokens = settings.maxTokens[AI_PROVIDER].chapter;
+    const maxTokens = settings.maxTokens[provider].chapter;
 
     const defaultSystemPrompt = `You are a professional fiction writer specializing in ${genre} stories. Write engaging, vivid prose with strong character development and compelling narrative flow.
 
@@ -628,7 +607,7 @@ Your goal is to write a chapter that feels like a natural continuation of the st
 
     const response = await debugLogger.logRequestWithTiming(
       {
-        provider: AI_PROVIDER,
+        provider: provider,
         endpoint: 'chat.completions.create',
         model: model,
         requestType: 'generateChapterContent',
@@ -663,7 +642,7 @@ Your goal is to write a chapter that feels like a natural continuation of the st
         requestType: 'generateChapterContent',
         requestData: { chapterIndex: chapterIndex + 1, chapterTitle: currentChapter.title },
       },
-      () => geminiClient.models.generateContent({
+      () => getGeminiClient().models.generateContent({
         model: MODELS.gemini.chapter,
         contents: prompt,
         config: {
@@ -742,15 +721,16 @@ Based on the chapter ending, what logically needs to happen in the next chapter:
 Be specific and concrete. The next chapter writer needs to know EXACTLY where to pick up the story.`;
 
   try {
-    if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
-      const client = AI_PROVIDER === "local" ? localClient : openaiClient;
-      const model = AI_PROVIDER === "local" ? MODELS.local.summary : MODELS.openai.summary;
+    const provider = getAIProvider();
+    if (provider === "openai" || provider === "local") {
+      const client = provider === "local" ? getLocalClient() : getOpenAIClient();
+      const model = provider === "local" ? MODELS.local.summary : MODELS.openai.summary;
       const settings = getRuntimeSettings();
-      const maxTokens = settings.maxTokens[AI_PROVIDER].summary;
+      const maxTokens = settings.maxTokens[provider].summary;
 
       const response = await debugLogger.logRequestWithTiming(
         {
-          provider: AI_PROVIDER,
+          provider: provider,
           endpoint: 'chat.completions.create',
           model: model,
           requestType: 'generateLastChapterContinuationSummary',
@@ -786,7 +766,7 @@ Be specific and concrete. The next chapter writer needs to know EXACTLY where to
           requestType: 'generateLastChapterContinuationSummary',
           requestData: { chapterId: chapter.id, chapterTitle: chapter.title },
         },
-        () => geminiClient.models.generateContent({
+        () => getGeminiClient().models.generateContent({
           model: MODELS.gemini.summary,
           contents: prompt,
           config: {
@@ -867,15 +847,16 @@ List specific facts, details, or constraints that MUST be maintained in future c
 Be thorough and specific. This summary will be used to ensure the next chapter continues seamlessly from where this one ended.`;
 
   try {
-    if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
-      const client = AI_PROVIDER === "local" ? localClient : openaiClient;
-      const model = AI_PROVIDER === "local" ? MODELS.local.summary : MODELS.openai.summary;
+    const provider = getAIProvider();
+    if (provider === "openai" || provider === "local") {
+      const client = provider === "local" ? getLocalClient() : getOpenAIClient();
+      const model = provider === "local" ? MODELS.local.summary : MODELS.openai.summary;
       const settings = getRuntimeSettings();
-      const maxTokens = settings.maxTokens[AI_PROVIDER].summary;
+      const maxTokens = settings.maxTokens[provider].summary;
 
       const response = await debugLogger.logRequestWithTiming(
         {
-          provider: AI_PROVIDER,
+          provider: provider,
           endpoint: 'chat.completions.create',
           model: model,
           requestType: 'generateDetailedChapterSummary',
@@ -911,7 +892,7 @@ Be thorough and specific. This summary will be used to ensure the next chapter c
           requestType: 'generateDetailedChapterSummary',
           requestData: { chapterId: chapter.id, chapterTitle: chapter.title },
         },
-        () => geminiClient.models.generateContent({
+        () => getGeminiClient().models.generateContent({
           model: MODELS.gemini.summary,
           contents: prompt,
           config: {
@@ -1021,15 +1002,16 @@ Chapters to summarize:
 
 ${textToSummarize}`;
 
-  if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
-    const client = AI_PROVIDER === "local" ? localClient : openaiClient;
-    const model = AI_PROVIDER === "local" ? MODELS.local.summary : MODELS.openai.summary;
+  const provider = getAIProvider();
+  if (provider === "openai" || provider === "local") {
+    const client = provider === "local" ? getLocalClient() : getOpenAIClient();
+    const model = provider === "local" ? MODELS.local.summary : MODELS.openai.summary;
     const settings = getRuntimeSettings();
-    const maxTokens = settings.maxTokens[AI_PROVIDER].summary;
+    const maxTokens = settings.maxTokens[provider].summary;
 
     const response = await debugLogger.logRequestWithTiming(
       {
-        provider: AI_PROVIDER,
+        provider: provider,
         endpoint: 'chat.completions.create',
         model: model,
         requestType: 'summarizePreviousChapters',
@@ -1044,7 +1026,7 @@ ${textToSummarize}`;
           },
           { role: "user", content: prompt },
         ],
-        temperature: 0.3, // Lower temperature for more consistent, factual summaries
+        temperature: 0.3,
         max_tokens: maxTokens,
       })
     );
@@ -1066,11 +1048,11 @@ ${textToSummarize}`;
         requestType: 'summarizePreviousChapters',
         requestData: { chapterCount: chaptersWithContent.length },
       },
-      () => geminiClient.models.generateContent({
+      () => getGeminiClient().models.generateContent({
         model: MODELS.gemini.summary,
         contents: prompt,
         config: {
-          temperature: 0.3, // Lower temperature for more consistent, factual summaries
+          temperature: 0.3,
           maxOutputTokens: maxTokens,
         },
       })
@@ -1118,9 +1100,10 @@ Respond in JSON format with:
 }`;
 
   try {
-    if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
-      const client = AI_PROVIDER === "local" ? localClient : openaiClient;
-      const model = AI_PROVIDER === "local" ? MODELS.local.summary : MODELS.openai.summary;
+    const provider = getAIProvider();
+    if (provider === "openai" || provider === "local") {
+      const client = provider === "local" ? getLocalClient() : getOpenAIClient();
+      const model = provider === "local" ? MODELS.local.summary : MODELS.openai.summary;
 
       const response = await client.chat.completions.create({
         model: model,
@@ -1142,7 +1125,7 @@ Respond in JSON format with:
       };
     } else {
       // Gemini implementation
-      const response = await geminiClient.models.generateContent({
+      const response = await getGeminiClient().models.generateContent({
         model: MODELS.gemini.summary,
         contents: prompt,
         config: {
@@ -1270,9 +1253,10 @@ ${readingLevel ? `- Reading Level: ${readingLevel}` : ''}${foreshadowingSection}
 
 Generate the revised chapter content now, focusing primarily on addressing the user's feedback:`;
 
-  if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
-    const client = AI_PROVIDER === "local" ? localClient : openaiClient;
-    const model = AI_PROVIDER === "local" ? MODELS.local.chapter : MODELS.openai.chapter;
+  const provider = getAIProvider();
+  if (provider === "openai" || provider === "local") {
+    const client = provider === "local" ? getLocalClient() : getOpenAIClient();
+    const model = provider === "local" ? MODELS.local.chapter : MODELS.openai.chapter;
 
     const defaultSystemPrompt = `You are a professional fiction writer specializing in ${genre} stories. You are revising a chapter based on specific user feedback.
 
@@ -1303,7 +1287,7 @@ CRITICAL: The user's feedback is your top priority. If they ask for more dialogu
     return response.choices[0].message.content || "Failed to regenerate content.";
   } else {
     // Gemini implementation
-    const response = await geminiClient.models.generateContent({
+    const response = await getGeminiClient().models.generateContent({
       model: MODELS.gemini.chapter,
       contents: regenerationPrompt,
       config: {
@@ -1408,11 +1392,12 @@ export const generateNextChapterOutcomes = async (
     IMPORTANT: Each outcome must move the story FORWARD from where it currently is. Do not retread ground already covered.
   `;
 
-  if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
-    const client = AI_PROVIDER === "local" ? localClient : openaiClient;
-    const model = AI_PROVIDER === "local" ? MODELS.local.outline : MODELS.openai.outline;
+  const provider = getAIProvider();
+  if (provider === "openai" || provider === "local") {
+    const client = provider === "local" ? getLocalClient() : getOpenAIClient();
+    const model = provider === "local" ? MODELS.local.outline : MODELS.openai.outline;
     const settings = getRuntimeSettings();
-    const maxTokens = settings.maxTokens[AI_PROVIDER].outline;
+    const maxTokens = settings.maxTokens[provider].outline;
 
     const defaultSystemPrompt = "You are a creative story planner. Return your response as a JSON array of objects with 'title', 'summary', and 'description' fields.";
     const systemPrompt = customSystemPrompt
@@ -1433,7 +1418,7 @@ export const generateNextChapterOutcomes = async (
     };
 
     // Use structured output for OpenAI if available
-    if (AI_PROVIDER === "openai") {
+    if (provider === "openai") {
       requestParams.response_format = {
         type: "json_schema",
         json_schema: {
@@ -1465,7 +1450,7 @@ export const generateNextChapterOutcomes = async (
 
     const response = await debugLogger.logRequestWithTiming(
       {
-        provider: AI_PROVIDER,
+        provider: provider,
         endpoint: 'chat.completions.create',
         model: model,
         requestType: 'generateNextChapterOutcomes',
@@ -1476,25 +1461,22 @@ export const generateNextChapterOutcomes = async (
 
     try {
       let content = response.choices[0].message.content || "{}";
-      console.log(`[${AI_PROVIDER}] Raw outcomes response:`, content);
+      console.log(`[${provider}] Raw outcomes response:`, content);
 
-      // Strip markdown code blocks if present
       content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
 
       const parsed = JSON.parse(content);
-      console.log(`[${AI_PROVIDER}] Parsed outcomes:`, parsed);
+      console.log(`[${provider}] Parsed outcomes:`, parsed);
 
-      // Extract outcomes from various possible structures
       let outcomes = parsed.outcomes || parsed;
 
       if (!Array.isArray(outcomes)) {
-        console.error(`[${AI_PROVIDER}] Expected array but got:`, typeof outcomes, outcomes);
+        console.error(`[${provider}] Expected array but got:`, typeof outcomes, outcomes);
         throw new Error("Response is not in expected array format");
       }
 
-      // Ensure we have exactly 3 outcomes
       if (outcomes.length < 3) {
-        console.warn(`[${AI_PROVIDER}] Only got ${outcomes.length} outcomes, expected 3`);
+        console.warn(`[${provider}] Only got ${outcomes.length} outcomes, expected 3`);
       }
 
       return outcomes.slice(0, 3).map((item: any) => ({
@@ -1503,7 +1485,7 @@ export const generateNextChapterOutcomes = async (
         description: item.description,
       }));
     } catch (e) {
-      console.error(`Failed to parse ${AI_PROVIDER} outcomes JSON`, e);
+      console.error(`Failed to parse ${provider} outcomes JSON`, e);
       throw new Error("Failed to generate valid chapter outcomes.");
     }
   } else {
@@ -1519,7 +1501,7 @@ export const generateNextChapterOutcomes = async (
         requestType: 'generateNextChapterOutcomes',
         requestData: { completedChaptersCount: completedChapters.length },
       },
-      () => geminiClient.models.generateContent({
+      () => getGeminiClient().models.generateContent({
         model: MODELS.gemini.outline,
         contents: prompt,
         config: {
@@ -1626,9 +1608,10 @@ export const generateChapterSuggestions = async (
     Each suggestion should have a compelling title and a 300-words sentence summary.
   `;
 
-  if (AI_PROVIDER === "openai" || AI_PROVIDER === "local") {
-    const client = AI_PROVIDER === "local" ? localClient : openaiClient;
-    const model = AI_PROVIDER === "local" ? MODELS.local.outline : MODELS.openai.outline;
+  const provider = getAIProvider();
+  if (provider === "openai" || provider === "local") {
+    const client = provider === "local" ? getLocalClient() : getOpenAIClient();
+    const model = provider === "local" ? MODELS.local.outline : MODELS.openai.outline;
 
     const defaultSystemPrompt = "You are a creative story editor. Return your response as a JSON array of objects with 'title' and 'summary' fields.";
     const systemPrompt = customSystemPrompt
@@ -1648,7 +1631,7 @@ export const generateChapterSuggestions = async (
     };
 
     // Add structured output for OpenAI if available
-    if (AI_PROVIDER === "openai") {
+    if (provider === "openai") {
       requestParams.response_format = {
         type: "json_schema",
         json_schema: {
@@ -1681,35 +1664,33 @@ export const generateChapterSuggestions = async (
 
     try {
       let content = response.choices[0].message.content || "{}";
-      console.log(`[${AI_PROVIDER}] Raw suggestions response:`, content);
+      console.log(`[${provider}] Raw suggestions response:`, content);
 
-      // Strip markdown code blocks if present
       content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
 
       const parsed = JSON.parse(content);
-      console.log(`[${AI_PROVIDER}] Parsed suggestions:`, parsed);
+      console.log(`[${provider}] Parsed suggestions:`, parsed);
 
-      // Try to extract suggestions from various possible structures
       let suggestions = parsed.suggestions || parsed;
 
       if (!Array.isArray(suggestions)) {
-        console.error(`[${AI_PROVIDER}] Expected array but got:`, typeof suggestions);
+        console.error(`[${provider}] Expected array but got:`, typeof suggestions);
         throw new Error("Invalid response format");
       }
 
-      console.log(`[${AI_PROVIDER}] Extracted ${suggestions.length} suggestions`);
+      console.log(`[${provider}] Extracted ${suggestions.length} suggestions`);
 
       return suggestions.slice(0, 3).map((item: any) => ({
         title: item.title,
         summary: item.summary,
       }));
     } catch (e) {
-      console.error(`Failed to parse ${AI_PROVIDER} suggestions JSON`, e);
+      console.error(`Failed to parse ${provider} suggestions JSON`, e);
       throw new Error("Failed to generate valid suggestions.");
     }
   } else {
     // Gemini implementation
-    const response = await geminiClient.models.generateContent({
+    const response = await getGeminiClient().models.generateContent({
       model: MODELS.gemini.outline,
       contents: prompt,
       config: {

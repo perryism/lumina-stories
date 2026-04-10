@@ -3,6 +3,22 @@ export interface Character {
   id: string;
   name: string;
   attributes: string;
+  // Extended profile (world-building)
+  role?: string;
+  backstory?: string;
+  personality?: string;
+  speakingStyle?: string;
+}
+
+export type WorldBuildingCategory = 'location' | 'magic' | 'lore' | 'faction' | 'item' | 'general';
+
+export interface WorldBuildingNote {
+  id: string;
+  category: WorldBuildingCategory;
+  title: string;
+  content: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface ForeshadowingNote {
@@ -59,6 +75,7 @@ export interface StoryState {
   systemPrompt?: string;
   foreshadowingNotes?: ForeshadowingNote[]; // Global foreshadowing notes for the story
   chapterOutcomes?: ChapterOutcome[]; // Suggested outcomes for the next chapter in continuous mode
+  worldBuilding?: WorldBuildingNote[]; // World-building notes (locations, lore, magic, etc.)
 }
 
 export enum GenerationStatus {

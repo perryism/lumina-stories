@@ -9,7 +9,8 @@ import { TemplateBrowser } from './components/TemplateBrowser';
 import { ForeshadowingManager } from './components/ForeshadowingManager';
 import { Library } from './components/Library';
 import { Settings } from './components/Settings';
-import { StoryState, Chapter, Character, ReadingLevel, ChapterOutcome, StoryTemplate, ForeshadowingNote } from './types';
+import { WorldBuildingPanel } from './components/WorldBuildingPanel';
+import { StoryState, Chapter, Character, ReadingLevel, ChapterOutcome, StoryTemplate, ForeshadowingNote, WorldBuildingNote } from './types';
 import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt, regenerateChapterContent, generateNextChapterOutcomes, validateChapterContent, generateChapterSuggestions, generateDetailedChapterSummary } from './services/aiService';
 import { saveStory, loadStory } from './services/libraryService';
 
@@ -77,6 +78,7 @@ const App: React.FC = () => {
   const [templateToLoad, setTemplateToLoad] = useState<StoryTemplate | null>(null);
   const [showLibrary, setShowLibrary] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showWorldBuilding, setShowWorldBuilding] = useState(false);
   const [currentStoryId, setCurrentStoryId] = useState<string | null>(null);
   const [templateRefreshTrigger, setTemplateRefreshTrigger] = useState(0);
   const [validationPrompt, setValidationPrompt] = useState<{
@@ -169,6 +171,37 @@ const App: React.FC = () => {
         outline: updatedOutline,
       };
     });
+  };
+
+  // ─── World-building handlers ─────────────────────────────────────────────────
+  const handleAddWorldBuildingNote = (note: Omit<WorldBuildingNote, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newNote: WorldBuildingNote = {
+      ...note,
+      id: `wb-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    setState(prev => ({ ...prev, worldBuilding: [...(prev.worldBuilding || []), newNote] }));
+  };
+
+  const handleUpdateWorldBuildingNote = (id: string, updates: Omit<WorldBuildingNote, 'id' | 'createdAt' | 'updatedAt'>) => {
+    setState(prev => ({
+      ...prev,
+      worldBuilding: (prev.worldBuilding || []).map(n =>
+        n.id === id ? { ...n, ...updates, updatedAt: Date.now() } : n
+      ),
+    }));
+  };
+
+  const handleDeleteWorldBuildingNote = (id: string) => {
+    setState(prev => ({ ...prev, worldBuilding: (prev.worldBuilding || []).filter(n => n.id !== id) }));
+  };
+
+  const handleUpdateCharacterProfile = (charId: string, updates: Partial<Character>) => {
+    setState(prev => ({
+      ...prev,
+      characters: prev.characters.map(c => c.id === charId ? { ...c, ...updates } : c),
+    }));
   };
 
   const handleConfirmOutline = () => {
@@ -980,6 +1013,19 @@ const App: React.FC = () => {
         />
       )}
 
+      {showWorldBuilding && (
+        <WorldBuildingPanel
+          worldBuilding={state.worldBuilding || []}
+          characters={state.characters}
+          chapters={state.outline}
+          onAddNote={handleAddWorldBuildingNote}
+          onUpdateNote={handleUpdateWorldBuildingNote}
+          onDeleteNote={handleDeleteWorldBuildingNote}
+          onUpdateCharacter={handleUpdateCharacterProfile}
+          onClose={() => setShowWorldBuilding(false)}
+        />
+      )}
+
       {state.currentStep === 'outline' && (
         <>
           <ForeshadowingManager
@@ -996,6 +1042,7 @@ const App: React.FC = () => {
             onManualMode={handleManualMode}
             onSave={handleSaveStory}
             onRequestSuggestions={handleRequestChapterSuggestions}
+            onWorldBuildingClick={() => setShowWorldBuilding(true)}
           />
         </>
       )}
@@ -1028,6 +1075,7 @@ const App: React.FC = () => {
             onAddForeshadowingNote={handleAddForeshadowingNote}
             onUpdateForeshadowingNote={handleUpdateForeshadowingNote}
             onDeleteForeshadowingNote={handleDeleteForeshadowingNote}
+            onWorldBuildingClick={() => setShowWorldBuilding(true)}
           />
 
           {/* Validation Prompt Modal */}
@@ -1237,6 +1285,7 @@ const App: React.FC = () => {
           onSave={handleSaveStory}
           onBack={handleBackFromReader}
           foreshadowingNotes={state.foreshadowingNotes}
+          onWorldBuildingClick={() => setShowWorldBuilding(true)}
         />
       )}
     </Layout>

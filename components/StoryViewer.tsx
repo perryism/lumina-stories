@@ -14,6 +14,7 @@ interface StoryViewerProps {
   onSave?: () => void;
   onBack?: () => void;
   foreshadowingNotes?: ForeshadowingNote[];
+  onWorldBuildingClick?: () => void;
 }
 
 export const StoryViewer: React.FC<StoryViewerProps> = ({
@@ -26,7 +27,8 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   isRegenerating = false,
   onSave,
   onBack,
-  foreshadowingNotes = []
+  foreshadowingNotes = [],
+  onWorldBuildingClick,
 }) => {
   // Filter to only show completed chapters
   const completedChapters = chapters.filter(ch => ch.status === 'completed' && ch.content);
@@ -253,6 +255,15 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
                 <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
               </svg>
               Back to Editing
+            </button>
+          )}
+          {onWorldBuildingClick && (
+            <button
+              type="button"
+              onClick={onWorldBuildingClick}
+              className="w-full px-4 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+            >
+              🌍 World Building
             </button>
           )}
           {onSave && (

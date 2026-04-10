@@ -14,6 +14,7 @@ interface OutlineEditorProps {
   onManualMode: () => void;
   onSave?: () => void;
   onRequestSuggestions?: (chapterIndex: number, userPrompt: string) => Promise<ChapterSuggestion[]>;
+  onWorldBuildingClick?: () => void;
 }
 
 export const OutlineEditor: React.FC<OutlineEditorProps> = ({
@@ -22,7 +23,8 @@ export const OutlineEditor: React.FC<OutlineEditorProps> = ({
   onConfirm,
   onManualMode,
   onSave,
-  onRequestSuggestions
+  onRequestSuggestions,
+  onWorldBuildingClick,
 }) => {
   const [expandedChapter, setExpandedChapter] = useState<number | null>(null);
   const [suggestionPrompts, setSuggestionPrompts] = useState<{ [key: number]: string }>({});
@@ -77,6 +79,15 @@ export const OutlineEditor: React.FC<OutlineEditorProps> = ({
           <p className="text-slate-500">Fine-tune the narrative beats before generating full prose.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
+          {onWorldBuildingClick && (
+            <button
+              type="button"
+              onClick={onWorldBuildingClick}
+              className="bg-teal-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-teal-700 transition-all flex items-center justify-center gap-2"
+            >
+              🌍 World
+            </button>
+          )}
           {onSave && (
             <button
               type="button"

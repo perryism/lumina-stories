@@ -30,6 +30,7 @@ interface ManualChapterGeneratorProps {
   onAddForeshadowingNote?: (note: Omit<ForeshadowingNote, 'id' | 'createdAt'>) => void;
   onUpdateForeshadowingNote?: (noteId: string, note: Omit<ForeshadowingNote, 'id' | 'createdAt'>) => void;
   onDeleteForeshadowingNote?: (noteId: string) => void;
+  onWorldBuildingClick?: () => void;
 }
 
 export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
@@ -57,6 +58,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   onAddForeshadowingNote,
   onUpdateForeshadowingNote,
   onDeleteForeshadowingNote,
+  onWorldBuildingClick,
 }) => {
   const [localSystemPrompt, setLocalSystemPrompt] = useState(systemPrompt || getDefaultSystemPrompt(genre));
   const [showForeshadowingForm, setShowForeshadowingForm] = useState(false);
@@ -700,6 +702,15 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
 
             {/* Save Progress and View Story Buttons */}
             <div className="pt-4 border-t border-slate-100 space-y-2">
+              {onWorldBuildingClick && (
+                <button
+                  type="button"
+                  onClick={onWorldBuildingClick}
+                  className="w-full bg-teal-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-teal-700 transition-all flex items-center justify-center gap-2"
+                >
+                  🌍 World Building
+                </button>
+              )}
               {onSave && (
                 <button
                   type="button"

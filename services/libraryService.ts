@@ -51,6 +51,19 @@ const storyToYAML = (story: SavedStory): string => {
       lines.push(`  - id: "${escapeYAMLString(char.id)}"`);
       lines.push(`    name: "${escapeYAMLString(char.name)}"`);
       lines.push(`    attributes: "${escapeYAMLString(char.attributes)}"`);
+      if (char.role) lines.push(`    role: "${escapeYAMLString(char.role)}"`);
+      if (char.backstory) {
+        lines.push(`    backstory: |`);
+        char.backstory.split('\n').forEach(l => lines.push(`      ${l}`));
+      }
+      if (char.personality) {
+        lines.push(`    personality: |`);
+        char.personality.split('\n').forEach(l => lines.push(`      ${l}`));
+      }
+      if (char.speakingStyle) {
+        lines.push(`    speakingStyle: |`);
+        char.speakingStyle.split('\n').forEach(l => lines.push(`      ${l}`));
+      }
     });
   }
   lines.push('');
@@ -150,6 +163,21 @@ const storyToYAML = (story: SavedStory): string => {
     });
   }
 
+  // Add world-building notes if they exist
+  if (state.worldBuilding && state.worldBuilding.length > 0) {
+    lines.push('');
+    lines.push('worldBuilding:');
+    state.worldBuilding.forEach((note) => {
+      lines.push(`  - id: "${escapeYAMLString(note.id)}"`);
+      lines.push(`    category: "${escapeYAMLString(note.category)}"`);
+      lines.push(`    title: "${escapeYAMLString(note.title)}"`);
+      lines.push(`    content: |`);
+      note.content.split('\n').forEach(l => lines.push(`      ${l}`));
+      lines.push(`    createdAt: ${note.createdAt}`);
+      lines.push(`    updatedAt: ${note.updatedAt}`);
+    });
+  }
+
   return lines.join('\n');
 };
 
@@ -164,7 +192,8 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
       characters: [],
       outline: [],
       foreshadowingNotes: [],
-      chapterOutcomes: []
+      chapterOutcomes: [],
+      worldBuilding: [],
     }
   };
 
@@ -174,6 +203,9 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
   let inOutline = false;
   let inForeshadowingNotes = false;
   let inChapterOutcomes = false;
+  let inWorldBuilding = false;
+  let currentWorldBuildingNote: any = null;
+  let inCharacterMultilineKey: string | null = null;
   let currentCharacter: any = null;
   let currentChapter: any = null;
   let currentChapterKey: string | null = null;
@@ -269,6 +301,11 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
       } else if (currentChapterKey) {
         currentChapter[currentChapterKey] = currentMultiline.join('\n');
         currentChapterKey = null;
+      } else if (currentKey === 'worldBuildingNote' && currentWorldBuildingNote) {
+        currentWorldBuildingNote['content'] = currentMultiline.join('\n');
+      } else if (currentKey === 'character' && currentCharacter && inCharacterMultilineKey) {
+        currentCharacter[inCharacterMultilineKey] = currentMultiline.join('\n');
+        inCharacterMultilineKey = null;
       } else {
         story.state[currentKey] = currentMultiline.join('\n');
       }
@@ -322,9 +359,23 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
         inForeshadowingNotes = false;
         inCharacters = false;
         inOutline = false;
+        inWorldBuilding = false;
         story.state.chapterOutcomes = [];
         if (value === '[]') {
           story.state.chapterOutcomes = [];
+        }
+        continue;
+      }
+
+      if (key === 'worldBuilding') {
+        inWorldBuilding = true;
+        inChapterOutcomes = false;
+        inForeshadowingNotes = false;
+        inCharacters = false;
+        inOutline = false;
+        story.state.worldBuilding = [];
+        if (value === '[]') {
+          story.state.worldBuilding = [];
         }
         continue;
       }
@@ -335,11 +386,18 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
           story.state.characters.push(currentCharacter);
         }
         currentCharacter = {};
+        inCharacterMultilineKey = null;
         const charKey = key.replace('- ', '');
         currentCharacter[charKey] = unescapeYAMLString(value);
       } else if (inCharacters && line.startsWith('    ')) {
         if (currentCharacter) {
-          currentCharacter[key] = unescapeYAMLString(value);
+          if (value === '|') {
+            inCharacterMultilineKey = key;
+            currentMultiline = [];
+            currentKey = 'character';
+          } else {
+            currentCharacter[key] = unescapeYAMLString(value);
+          }
         }
       }
       // Outline parsing
@@ -461,8 +519,28 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
           currentChapterOutcome[key] = unescapeYAMLString(value);
         }
       }
+      // WorldBuilding notes parsing
+      else if (inWorldBuilding && line.startsWith('  - ')) {
+        if (currentWorldBuildingNote) {
+          story.state.worldBuilding.push(currentWorldBuildingNote);
+        }
+        currentWorldBuildingNote = {};
+        const wbKey = key.replace('- ', '');
+        currentWorldBuildingNote[wbKey] = unescapeYAMLString(value);
+      } else if (inWorldBuilding && line.startsWith('    ')) {
+        if (currentWorldBuildingNote) {
+          if (value === '|') {
+            currentKey = 'worldBuildingNote';
+            currentMultiline = [];
+          } else if (key === 'createdAt' || key === 'updatedAt') {
+            currentWorldBuildingNote[key] = parseInt(value);
+          } else {
+            currentWorldBuildingNote[key] = unescapeYAMLString(value);
+          }
+        }
+      }
       // State-level keys
-      else if (!inCharacters && !inOutline && !inForeshadowingNotes && !inChapterOutcomes) {
+      else if (!inCharacters && !inOutline && !inForeshadowingNotes && !inChapterOutcomes && !inWorldBuilding) {
         if (value === '|') {
           currentKey = key;
           currentMultiline = [];
@@ -507,6 +585,12 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
     story.state.chapterOutcomes.push(currentChapterOutcome);
   }
 
+  // Add last world-building note if exists
+  if (currentWorldBuildingNote) {
+    story.state.worldBuilding = story.state.worldBuilding || [];
+    story.state.worldBuilding.push(currentWorldBuildingNote);
+  }
+
   // Add last multiline if exists
   if (currentKey && currentMultiline.length > 0) {
     if (currentRevisionKey) {
@@ -523,7 +607,8 @@ const parseYAMLStory = (yamlContent: string): SavedStory => {
     title: story.state?.title,
     charactersCount: story.state?.characters?.length,
     outlineCount: story.state?.outline?.length,
-    foreshadowingNotesCount: story.state?.foreshadowingNotes?.length
+    foreshadowingNotesCount: story.state?.foreshadowingNotes?.length,
+    worldBuildingCount: story.state?.worldBuilding?.length,
   });
 
   return story as SavedStory;
