@@ -1168,7 +1168,8 @@ export const regenerateChapterContent = async (
 
   console.log(`[regenerateChapterContent] Regenerating Chapter ${chapterIndex + 1}: "${currentChapter.title}"`);
   console.log(`[regenerateChapterContent] Previous summary length: ${previousChaptersSummary.length} chars`);
-  console.log(`[regenerateChapterContent] User feedback: ${userFeedback.substring(0, 100)}...`);
+  console.log(`[regenerateChapterContent] User feedback (FULL): "${userFeedback}"`);
+  console.log(`[regenerateChapterContent] Existing chapter content length: ${currentChapter.content?.length ?? 0} chars`);
 
   // Generate a special continuation summary for the last chapter (if not first chapter)
   let lastChapterContinuationSummary = '';
@@ -1213,20 +1214,14 @@ export const regenerateChapterContent = async (
     }
   }
 
-  // Build a more focused regeneration prompt that emphasizes the user feedback
+  // Build a more focused regeneration prompt that emphasizes the user feedback.
+  // IMPORTANT: Revision instructions are placed LAST (right before the generation
+  // command) so the model sees them most recently and weighs them most heavily.
   const regenerationPrompt = `🔄 CHAPTER REVISION REQUEST 🔄
 
 You are revising Chapter ${chapterIndex + 1}: "${currentChapter.title}" of the ${genre} story "${storyTitle}".
 
-📝 USER'S REVISION INSTRUCTIONS (PRIMARY FOCUS):
-${userFeedback}
-
-⚠️ YOUR TASK: Rewrite this chapter to address the user's feedback above while maintaining story continuity.
-
-📖 PREVIOUS VERSION OF THE CHAPTER:
-${currentChapter.content}
-
-📚 STORY CONTEXT (What happened before this chapter):
+ STORY CONTEXT (What happened before this chapter):
 ${previousChaptersSummary || "This is the first chapter."}
 ${lastChapterContinuationSummary ? `\n🎯 LAST CHAPTER ENDING:\n${lastChapterContinuationSummary}` : ''}
 
@@ -1237,28 +1232,36 @@ ${lastChapterContinuationSummary ? `\n🎯 LAST CHAPTER ENDING:\n${lastChapterCo
 ${currentChapter.acceptanceCriteria ? `- Acceptance Criteria: ${currentChapter.acceptanceCriteria}` : ''}
 ${readingLevel ? `- Reading Level: ${readingLevel}` : ''}${foreshadowingSection}
 
-✅ REVISION CHECKLIST:
-1. ⭐ PRIMARY: Address ALL points in the user's revision instructions above
-2. Maintain continuity - don't repeat events from previous chapters
-3. Characters remember what happened before
-4. Keep the core plot from the chapter summary
-5. Match the story's established tone and style
-6. Improve the chapter based on the specific feedback
+📖 CURRENT VERSION OF THE CHAPTER (to be revised):
+${currentChapter.content || "(No existing content — write the chapter fresh based on the requirements above.)"}
+
+---
+
+⭐ USER'S REVISION INSTRUCTIONS — THIS IS YOUR PRIMARY TASK ⭐
+The user has asked you to make the following changes to the chapter above:
+
+${userFeedback}
+
+⚠️ YOUR TASK: Rewrite the chapter, implementing the user's revision instructions above as your top priority. Keep all other story elements intact.
+
+✅ REVISION RULES:
+1. ⭐ FIRST: Implement ALL points in the user's revision instructions — do not skip any
+2. Keep continuity — do not repeat events from previous chapters
+3. Preserve character consistency and memory of past events
+4. Retain the core plot from the chapter summary
+5. Match the established tone and style of the story
 
 🚫 DO NOT:
-- Ignore or downplay the user's revision instructions
-- Repeat events that already happened in previous chapters
+- Ignore or downplay the user's revision instructions — they are mandatory
+- Repeat events that already happened in earlier chapters
 - Contradict established story facts
-- Change the core plot points from the chapter summary
 
-Generate the revised chapter content now, focusing primarily on addressing the user's feedback:`;
+Now generate the revised chapter, making sure to fully apply the revision instructions above:`;
 
-  const provider = getAIProvider();
-  if (provider === "openai" || provider === "local") {
-    const client = provider === "local" ? getLocalClient() : getOpenAIClient();
-    const model = provider === "local" ? MODELS.local.chapter : MODELS.openai.chapter;
-
-    const defaultSystemPrompt = `You are a professional fiction writer specializing in ${genre} stories. You are revising a chapter based on specific user feedback.
+  // The revision system prompt always leads so the model knows its primary goal is
+  // to follow the user's instructions. The story's custom system prompt is appended
+  // as style/tone context rather than replacing the revision directive.
+  const revisionSystemPrompt = `You are a professional fiction writer specializing in ${genre} stories. You are revising a chapter based on specific user feedback.
 
 YOUR PRIMARY GOAL: Follow the user's revision instructions precisely. The user knows what they want - your job is to implement their vision while maintaining story quality.
 
@@ -1269,7 +1272,15 @@ SECONDARY GOALS:
 - Never repeat events that already occurred
 
 CRITICAL: The user's feedback is your top priority. If they ask for more dialogue, add more dialogue. If they ask for more action, add more action. If they ask for emotional depth, add emotional depth. Follow their instructions closely.`;
-    const systemPrompt = customSystemPrompt || defaultSystemPrompt;
+
+  const systemPrompt = customSystemPrompt
+    ? `${revisionSystemPrompt}\n\nSTORY STYLE CONTEXT:\n${customSystemPrompt}`
+    : revisionSystemPrompt;
+
+  const provider = getAIProvider();
+  if (provider === "openai" || provider === "local") {
+    const client = provider === "local" ? getLocalClient() : getOpenAIClient();
+    const model = provider === "local" ? MODELS.local.chapter : MODELS.openai.chapter;
 
     const response = await client.chat.completions.create({
       model: model,
@@ -1291,6 +1302,7 @@ CRITICAL: The user's feedback is your top priority. If they ask for more dialogu
       model: MODELS.gemini.chapter,
       contents: regenerationPrompt,
       config: {
+        systemInstruction: systemPrompt,
         temperature: 0.8,
         topP: 0.95,
         thinkingConfig: { thinkingBudget: 16000 },
