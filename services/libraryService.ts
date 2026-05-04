@@ -1,4 +1,5 @@
 import { SavedStory, StoryState } from '../types';
+import { getToken } from '../utils/authService';
 
 const API_SERVER_URL = process.env.API_SERVER_URL || 'http://localhost:3001';
 const API_BASE_URL = `${API_SERVER_URL}/api`;
@@ -638,7 +639,12 @@ const unescapeYAMLString = (str: string): string => {
  */
 export const getAllSavedStories = async (): Promise<SavedStory[]> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/list-stories`);
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/list-stories`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
     if (!response.ok) {
       throw new Error('Failed to list stories');
     }
@@ -649,7 +655,11 @@ export const getAllSavedStories = async (): Promise<SavedStory[]> => {
     // Load each story file
     for (const filename of files) {
       try {
-        const loadResponse = await fetch(`${API_BASE_URL}/load-story/${filename}`);
+        const loadResponse = await fetch(`${API_BASE_URL}/load-story/${filename}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         if (loadResponse.ok) {
           const { content } = await loadResponse.json();
           const story = parseYAMLStory(content);
@@ -702,10 +712,12 @@ export const saveStory = async (state: StoryState): Promise<SavedStory> => {
 
   // Save via API
   try {
+    const token = getToken();
     const response = await fetch(`${API_BASE_URL}/save-story`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
         filename,
@@ -776,8 +788,12 @@ export const deleteStory = async (storyId: string): Promise<void> => {
   const filename = `${story.state.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.yaml`;
 
   try {
+    const token = getToken();
     const response = await fetch(`${API_BASE_URL}/delete-story/${filename}`, {
       method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
     });
 
     if (!response.ok) {
