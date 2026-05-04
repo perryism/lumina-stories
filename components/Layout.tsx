@@ -7,6 +7,7 @@ import {
   hasMultipleModels,
   isLocalProvider
 } from '../utils/modelSelection';
+import { useAuth } from './AuthContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -21,6 +22,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onTemplatesClick, onNe
   const [selectedModel, setSelectedModelState] = useState<string>('');
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [showModelSelector, setShowModelSelector] = useState(false);
+  const { logout, user } = useAuth();
 
   // Initialize model selection state
   useEffect(() => {
@@ -110,6 +112,16 @@ export const Layout: React.FC<LayoutProps> = ({ children, onTemplatesClick, onNe
             >
               New Story
             </button>
+
+            <div className="flex items-center gap-3 pl-6 border-l border-slate-200">
+              <span className="text-sm text-slate-600">{user?.username}</span>
+              <button
+                onClick={logout}
+                className="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors"
+              >
+                Logout
+              </button>
+            </div>
           </nav>
 
           {/* Mobile Menu Button */}

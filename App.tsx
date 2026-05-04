@@ -10,6 +10,9 @@ import { ForeshadowingManager } from './components/ForeshadowingManager';
 import { Library } from './components/Library';
 import { Settings } from './components/Settings';
 import { WorldBuildingPanel } from './components/WorldBuildingPanel';
+import { Login } from './components/Login';
+import { Register } from './components/Register';
+import { useAuth } from './components/AuthContext';
 import { StoryState, Chapter, Character, ReadingLevel, ChapterOutcome, StoryTemplate, ForeshadowingNote, WorldBuildingNote } from './types';
 import { generateOutline, generateChapterContent, summarizePreviousChapters, buildChapterPrompt, regenerateChapterContent, generateNextChapterOutcomes, validateChapterContent, generateChapterSuggestions, generateDetailedChapterSummary } from './services/aiService';
 import { saveStory, loadStory } from './services/libraryService';
@@ -53,7 +56,7 @@ const addForeshadowingToAcceptanceCriteria = (outline: Chapter[], foreshadowingN
   });
 };
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [state, setState] = useState<StoryState>({
     title: '',
     genre: 'Fantasy',
@@ -1298,6 +1301,34 @@ const App: React.FC = () => {
       )}
     </Layout>
   );
+};
+
+const App: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  const [showRegister, setShowRegister] = useState(false);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4 animate-spin">
+            <div className="w-12 h-12 bg-white bg-opacity-10 rounded-full"></div>
+          </div>
+          <p className="text-lg font-semibold">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return showRegister ? (
+      <Register onSwitchToLogin={() => setShowRegister(false)} />
+    ) : (
+      <Login onSwitchToRegister={() => setShowRegister(true)} />
+    );
+  }
+
+  return <AppContent />;
 };
 
 export default App;
