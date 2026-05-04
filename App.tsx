@@ -105,6 +105,13 @@ const App: React.FC = () => {
     }
   };
 
+  const handleBackToSetup = () => {
+    setState(prev => ({
+      ...prev,
+      currentStep: 'setup'
+    }));
+  };
+
   const handleUpdateOutline = (updated: Chapter[]) => {
     setState(prev => ({ ...prev, outline: updated }));
   };
@@ -1043,6 +1050,7 @@ const App: React.FC = () => {
             onSave={handleSaveStory}
             onRequestSuggestions={handleRequestChapterSuggestions}
             onWorldBuildingClick={() => setShowWorldBuilding(true)}
+            onBack={handleBackToSetup}
           />
         </>
       )}
