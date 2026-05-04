@@ -5,12 +5,55 @@ import { getDefaultSystemPrompt } from '../services/aiService';
 import { saveTemplateToTemplatesFolder, saveTemplateToStorage } from '../utils/templateService';
 import { getGenreNames, getGenreSystemPrompt } from '../services/genreLoader';
 
+// Auto-save storage key
+const AUTOSAVE_KEY = 'lumina_story_form_autosave';
+
 interface StoryFormProps {
   onStart: (data: { title: string; genre: string; numChapters: number; readingLevel: ReadingLevel; characters: Character[]; initialIdea: string; systemPrompt?: string }) => void;
   isLoading: boolean;
   initialTemplate?: StoryTemplate;
   onTemplateSaved?: () => void; // Optional callback when template is saved
 }
+
+interface AutoSaveData {
+  title: string;
+  genre: string;
+  numChapters: number;
+  readingLevel: ReadingLevel;
+  initialIdea: string;
+  systemPrompt: string;
+  characters: Character[];
+  showAdvanced: boolean;
+}
+
+// Helper function to save form data to localStorage
+const saveToLocalStorage = (data: AutoSaveData) => {
+  try {
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.warn('Failed to save form data to localStorage:', error);
+  }
+};
+
+// Helper function to load form data from localStorage
+const loadFromLocalStorage = (): AutoSaveData | null => {
+  try {
+    const data = localStorage.getItem(AUTOSAVE_KEY);
+    return data ? JSON.parse(data) : null;
+  } catch (error) {
+    console.warn('Failed to load form data from localStorage:', error);
+    return null;
+  }
+};
+
+// Helper function to clear auto-saved form data
+const clearAutoSave = () => {
+  try {
+    localStorage.removeItem(AUTOSAVE_KEY);
+  } catch (error) {
+    console.warn('Failed to clear auto-saved form data:', error);
+  }
+};
 
 export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading, initialTemplate, onTemplateSaved }) => {
   const [title, setTitle] = useState('');
@@ -25,14 +68,17 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading, initia
   ]);
   const [templateMessage, setTemplateMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [genres, setGenres] = useState<string[]>([]);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   // Ref to prevent the genre-change effect from overriding a system prompt set by a template
   const skipGenrePromptRef = useRef(false);
   // Ref to always have the latest genre value without stale closures
   const currentGenreRef = useRef(genre);
   currentGenreRef.current = genre;
+  // Ref to track if we've loaded auto-save data
+  const autoSaveLoadedRef = useRef(false);
 
-  // Load genres from config on mount
+  // Load genres from config and auto-save data on mount
   useEffect(() => {
     const loadGenres = async () => {
       try {
@@ -44,8 +90,26 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading, initia
         setGenres(['Fantasy', 'Sci-Fi', 'Mystery', 'Romance', 'Horror', 'Thriller', 'Historical', 'Adventure']);
       }
     };
+
+    // Load auto-saved data if no template was provided
+    if (!initialTemplate && !autoSaveLoadedRef.current) {
+      const autoSaveData = loadFromLocalStorage();
+      if (autoSaveData) {
+        setTitle(autoSaveData.title);
+        setGenre(autoSaveData.genre);
+        setNumChapters(autoSaveData.numChapters);
+        setReadingLevel(autoSaveData.readingLevel);
+        setInitialIdea(autoSaveData.initialIdea);
+        setSystemPrompt(autoSaveData.systemPrompt);
+        setCharacters(autoSaveData.characters);
+        setShowAdvanced(autoSaveData.showAdvanced);
+      }
+      autoSaveLoadedRef.current = true;
+    }
+
     loadGenres();
-  }, []);
+    setIsInitializing(false);
+  }, [initialTemplate]);
 
   // Update system prompt when genre changes (skipped when template loading sets it)
   useEffect(() => {
@@ -91,6 +155,24 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading, initia
     }
   }, [initialTemplate]);
 
+  // Auto-save form data to localStorage whenever any field changes
+  useEffect(() => {
+    if (isInitializing) return;
+
+    const autoSaveData: AutoSaveData = {
+      title,
+      genre,
+      numChapters,
+      readingLevel,
+      initialIdea,
+      systemPrompt,
+      characters,
+      showAdvanced
+    };
+
+    saveToLocalStorage(autoSaveData);
+  }, [title, genre, numChapters, readingLevel, initialIdea, systemPrompt, characters, showAdvanced, isInitializing]);
+
   const addCharacter = () => {
     setCharacters([...characters, { id: Date.now().toString(), name: '', attributes: '' }]);
   };
@@ -106,6 +188,10 @@ export const StoryForm: React.FC<StoryFormProps> = ({ onStart, isLoading, initia
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !initialIdea) return;
+
+    // Clear auto-save data after successful submission
+    clearAutoSave();
+
     onStart({
       title,
       genre,
