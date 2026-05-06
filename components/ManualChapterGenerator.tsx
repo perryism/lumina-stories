@@ -16,6 +16,7 @@ interface ManualChapterGeneratorProps {
   onUpdatePrompt: (prompt: string) => void;
   onUpdateSystemPrompt?: (prompt: string) => void;
   onGenerateNext: (customPrompt: string) => void;
+  onGenerateRemaining?: () => void;
   onRegenerateChapter?: (chapterIndex: number, feedback: string, acceptanceCriteria?: string) => void;
   onClearChapter?: (chapterIndex: number) => void;
   onResetAllChapters?: () => void;
@@ -31,6 +32,7 @@ interface ManualChapterGeneratorProps {
   onUpdateForeshadowingNote?: (noteId: string, note: Omit<ForeshadowingNote, 'id' | 'createdAt'>) => void;
   onDeleteForeshadowingNote?: (noteId: string) => void;
   onWorldBuildingClick?: () => void;
+  onBack?: () => void;
 }
 
 export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
@@ -45,6 +47,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   onUpdatePrompt,
   onUpdateSystemPrompt,
   onGenerateNext,
+  onGenerateRemaining,
   onRegenerateChapter,
   onResetAllChapters,
   onViewStory,
@@ -59,6 +62,7 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   onUpdateForeshadowingNote,
   onDeleteForeshadowingNote,
   onWorldBuildingClick,
+  onBack,
 }) => {
   const [localSystemPrompt, setLocalSystemPrompt] = useState(systemPrompt || getDefaultSystemPrompt(genre));
   const [showForeshadowingForm, setShowForeshadowingForm] = useState(false);
@@ -227,7 +231,21 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
   return (
     <div className="max-w-5xl mx-auto pb-12">
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-slate-900 mb-2">{title}</h2>
+        <div className="flex items-center gap-3 mb-2">
+          {onBack && (
+            <button
+              onClick={onBack}
+              title="Go back to Story Map"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+              </svg>
+              Story Map
+            </button>
+          )}
+          <h2 className="text-3xl font-bold text-slate-900">{title}</h2>
+        </div>
         <p className="text-slate-500">Generate chapters one at a time. Edit the outline before generating each chapter.</p>
       </div>
 
@@ -1064,6 +1082,32 @@ export const ManualChapterGenerator: React.FC<ManualChapterGeneratorProps> = ({
                     </>
                   )}
                 </button>
+
+                {/* Generate Remaining Chapters button — only shown when 2+ chapters are pending */}
+                {onGenerateRemaining && chapters.filter(ch => ch.status === 'pending' || ch.status === 'error').length > 1 && (
+                  <button
+                    onClick={onGenerateRemaining}
+                    disabled={isGenerating}
+                    className="w-full font-semibold py-2.5 px-4 rounded-xl border-2 border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 text-sm"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
+                        </svg>
+                        Generate Remaining {chapters.filter(ch => ch.status === 'pending' || ch.status === 'error').length} Chapters
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             )}
           </div>

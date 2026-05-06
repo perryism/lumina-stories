@@ -115,6 +115,13 @@ const AppContent: React.FC = () => {
     }));
   };
 
+  const handleBackToOutline = () => {
+    setState(prev => ({
+      ...prev,
+      currentStep: 'outline'
+    }));
+  };
+
   const handleUpdateOutline = (updated: Chapter[]) => {
     setState(prev => ({ ...prev, outline: updated }));
   };
@@ -416,6 +423,70 @@ const AppContent: React.FC = () => {
     }
   };
 
+  const handleGenerateRemainingChapters = async () => {
+    const pendingIndices = state.outline
+      .map((ch, i) => ({ ch, i }))
+      .filter(({ ch }) => ch.status === 'pending' || ch.status === 'error')
+      .map(({ i }) => i);
+
+    if (pendingIndices.length === 0) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    const updatedOutline = [...state.outline];
+
+    try {
+      for (const nextIndex of pendingIndices) {
+        // Mark as generating
+        updatedOutline[nextIndex] = { ...updatedOutline[nextIndex], status: 'generating' };
+        setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+
+        // Summarize completed chapters so far
+        const completedChapters = updatedOutline.slice(0, nextIndex).filter(c => c.status === 'completed');
+        const previousSummary = completedChapters.length > 0
+          ? await summarizePreviousChapters(completedChapters)
+          : '';
+
+        // Generate chapter content
+        const content = await generateChapterContent(
+          state.title,
+          state.genre,
+          state.characters,
+          nextIndex,
+          updatedOutline,
+          previousSummary,
+          undefined,
+          state.readingLevel,
+          state.systemPrompt,
+          state.foreshadowingNotes
+        );
+
+        updatedOutline[nextIndex] = { ...updatedOutline[nextIndex], content, status: 'completed' };
+        setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+
+        // Generate detailed summary for this chapter
+        try {
+          const detailedSummary = await generateDetailedChapterSummary(updatedOutline[nextIndex]);
+          updatedOutline[nextIndex] = { ...updatedOutline[nextIndex], detailedSummary };
+          setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+        } catch (err) {
+          console.error(`Failed to generate detailed summary for chapter ${nextIndex + 1}:`, err);
+        }
+      }
+    } catch (err: any) {
+      console.error('Remaining chapters generation failed', err);
+      const failedIndex = updatedOutline.findIndex(ch => ch.status === 'generating');
+      if (failedIndex !== -1) {
+        updatedOutline[failedIndex] = { ...updatedOutline[failedIndex], status: 'error' };
+        setState(prev => ({ ...prev, outline: [...updatedOutline] }));
+      }
+      setError('Failed to generate chapters. You can retry from the failed chapter.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleViewStory = () => {
     setState(prev => ({ ...prev, currentStep: 'reader' }));
   };
@@ -528,10 +599,23 @@ const AppContent: React.FC = () => {
     setSuccessMessage('All chapters have been reset to pending status.');
     setTimeout(() => setSuccessMessage(null), 3000);
 
-    // Update prompt for next chapter after clearing
-    setTimeout(() => {
-      updatePromptForNextChapter();
-    }, 100);
+    // Reset prompt to chapter 1 using the fresh updatedOutline directly,
+    // so we don't read stale state from the closure.
+    if (updatedOutline.length > 0) {
+      const firstChapter = updatedOutline[0];
+      const prompt = buildChapterPrompt(
+        state.title,
+        state.genre,
+        state.characters,
+        0,
+        updatedOutline,
+        '',
+        firstChapter.characterIds,
+        state.readingLevel,
+        state.foreshadowingNotes
+      );
+      setCurrentPrompt(prompt);
+    }
   };
 
   const handleSelectOutcome = (outcome: ChapterOutcome) => {
@@ -1072,6 +1156,7 @@ const AppContent: React.FC = () => {
             onUpdatePrompt={setCurrentPrompt}
             onUpdateSystemPrompt={(prompt) => setState(prev => ({ ...prev, systemPrompt: prompt }))}
             onGenerateNext={handleGenerateNextChapter}
+            onGenerateRemaining={handleGenerateRemainingChapters}
             onRegenerateChapter={handleRegenerateChapter}
             onClearChapter={handleClearChapter}
             onResetAllChapters={handleResetAllChapters}
@@ -1087,6 +1172,7 @@ const AppContent: React.FC = () => {
             onUpdateForeshadowingNote={handleUpdateForeshadowingNote}
             onDeleteForeshadowingNote={handleDeleteForeshadowingNote}
             onWorldBuildingClick={() => setShowWorldBuilding(true)}
+            onBack={handleBackToOutline}
           />
 
           {/* Validation Prompt Modal */}
