@@ -435,9 +435,12 @@ const AppContent: React.FC = () => {
     setError(null);
 
     const updatedOutline = [...state.outline];
+    let currentIndex = -1;
 
     try {
       for (const nextIndex of pendingIndices) {
+        currentIndex = nextIndex;
+
         // Mark as generating
         updatedOutline[nextIndex] = { ...updatedOutline[nextIndex], status: 'generating' };
         setState(prev => ({ ...prev, outline: [...updatedOutline] }));
@@ -476,12 +479,11 @@ const AppContent: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Remaining chapters generation failed', err);
-      const failedIndex = updatedOutline.findIndex(ch => ch.status === 'generating');
-      if (failedIndex !== -1) {
-        updatedOutline[failedIndex] = { ...updatedOutline[failedIndex], status: 'error' };
+      if (currentIndex !== -1) {
+        updatedOutline[currentIndex] = { ...updatedOutline[currentIndex], status: 'error' };
         setState(prev => ({ ...prev, outline: [...updatedOutline] }));
       }
-      setError('Failed to generate chapters. You can retry from the failed chapter.');
+      setError(`Failed to generate chapter ${currentIndex + 1}. You can retry from the failed chapter.`);
     } finally {
       setIsLoading(false);
     }
